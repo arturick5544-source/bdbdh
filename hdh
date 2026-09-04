@@ -1,577 +1,598 @@
 -- ═══════════════════════════════════════════════════════════════════
--- ФАЙЛ: StarsESP_10X.lua
--- ВЕРСИЯ: 10X ULTRA
--- АВТОР: Stars (ROSE MOD)
--- НАЗНАЧЕНИЕ: ROBLOX ESP + AIMBOT + ТРАССЕРЫ + УВЕДОМЛЕНИЯ
+-- MM2 ESP PRO | ПОЛНАЯ ВЕРСИЯ | Arceus X Neo OPTIMIZED
 -- ═══════════════════════════════════════════════════════════════════
 
--- ═══════════════════════════════════════════════════
--- ИНИЦИАЛИЗАЦИЯ ПЕРЕМЕННЫХ
--- ═══════════════════════════════════════════════════
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local HttpService = game:GetService("HttpService")
-local CoreGui = game.CoreGui
+local CoreGui = game:GetService("CoreGui") or LocalPlayer.PlayerGui
+local UserInput = game:GetService("UserInputService")
+local Workspace = workspace
 
--- Проверка на повторный запуск
-if CoreGui:FindFirstChild("StarsESP_10X_Running") then
-    print("⚠️ STARS ESP 10X УЖЕ ЗАПУЩЕН!")
-    return
-end
-
-local RunningFlag = Instance.new("BoolValue")
-RunningFlag.Name = "StarsESP_10X_Running"
-RunningFlag.Parent = CoreGui
-
--- ═══════════════════════════════════════════════════
--- ГЛОБАЛЬНАЯ КОНФИГУРАЦИЯ
--- ═══════════════════════════════════════════════════
-_G.STARS_CONFIG = {
-    ESP = {
-        Enabled = true,
-        BoxType = "3D",
-        BoxColor = Color3.fromRGB(0, 255, 0),
-        BoxTransparency = 0.3,
-        ShowName = true,
-        ShowDistance = true,
-        ShowHealth = true,
-        ShowHealthBar = true,
-        ShowArmor = true,
-        MaxDistance = 800,
-        Wallhack = true,
-        HighlightLowHP = true,
-        HealthThreshold = 20
+-- ═══════════════════════════════════════════════════════════════════
+-- КОНФИГУРАЦИЯ
+-- ═══════════════════════════════════════════════════════════════════
+local CONFIG = {
+    Enabled = true,
+    ShowNames = true,
+    ShowDistance = true,
+    MaxDist = 1000,
+    Font = Enum.Font.GothamBold,
+    TextSize = 20,
+    OutlineColor = Color3.fromRGB(255, 255, 255), -- белая обводка
+    Roles = {
+        Murderer = Color3.fromRGB(255, 0, 0),     -- КРАСНЫЙ
+        Sheriff = Color3.fromRGB(0, 150, 255),    -- СИНИЙ
+        Innocent = Color3.fromRGB(0, 255, 100)    -- ЗЕЛЁНЫЙ
     },
-    Tracers = {
-        Enabled = true,
-        Color = Color3.fromRGB(255, 0, 0),
-        Thickness = 2,
-        FromBottom = true,
-        Style = "Line" -- "Line", "Dotted", "Dashed"
-    },
-    Aimbot = {
-        Enabled = false,
-        Smoothness = 0.3,
-        Prediction = true,
-        FOV = 100,
-        AimPart = "Head",
-        VisibleCheck = true,
-        KeyBind = Enum.KeyCode.LeftAlt,
-        SilentAim = false
-    },
-    Damage = {
-        ShowDamage = true,
-        ShowHeal = true,
-        ShowKills = true,
-        DamageColor = Color3.fromRGB(255, 0, 0),
-        HealColor = Color3.fromRGB(0, 255, 0),
-        KillColor = Color3.fromRGB(255, 255, 0)
-    },
-    Misc = {
-        TeamCheck = true,
-        IgnoreTeammates = true,
-        ShowDistanceInMeters = true,
-        HighlightTeammates = false,
-        AntiCrash = true,
-        PerformanceMode = false
-    },
-    Menu = {
-        ShowMenuOnStart = true,
-        MenuPosition = UDim2.new(0.5, -200, 0.5, -250),
-        MenuSize = UDim2.new(0, 400, 0, 500),
-        Transparency = 0.15,
-        HotKey = Enum.KeyCode.F1
+    RoleIcons = {
+        Murderer = "🔪",
+        Sheriff = "🔫",
+        Innocent = "👤"
     }
 }
 
--- ═══════════════════════════════════════════════════
--- СИСТЕМА ОБЪЕКТОВ ESP
--- ═══════════════════════════════════════════════════
-local ESPObjects = {}
+-- ═══════════════════════════════════════════════════════════════════
+-- ПЕРЕМЕННЫЕ
+-- ═══════════════════════════════════════════════════════════════════
 local ESPFolder = Instance.new("Folder")
-ESPFolder.Name = "StarsESP_10X"
+ESPFolder.Name = "MM2_ESP_PRO"
 ESPFolder.Parent = CoreGui
 
-local DamageLogs = {}
-local KillCounter = {}
-local PlayersList = {}
+local espData = {}
+local MenuOpen = true
+local GameLoaded = false
 
--- ═══════════════════════════════════════════════════
--- ФУНКЦИЯ: СОЗДАНИЕ ESP ДЛЯ ИГРОКА
--- ═══════════════════════════════════════════════════
-local function CreateESP(player)
-    if player == LocalPlayer then return end
-    if ESPObjects[player] then
-        for _, obj in pairs(ESPObjects[player]) do
-            if obj and obj.Parent then obj:Destroy() end
+-- ═══════════════════════════════════════════════════════════════════
+-- ОПРЕДЕЛЕНИЕ РОЛИ В MM2 (РАСШИРЕННОЕ)
+-- ═══════════════════════════════════════════════════════════════════
+local function GetPlayerRole(player)
+    if not player or player == LocalPlayer then return "Innocent" end
+    
+    local character = player.Character
+    if not character then return "Innocent" end
+    
+    -- 1. ПРОВЕРКА ЧЕРЕЗ ИНСТРУМЕНТЫ (самый надёжный способ)
+    local tool = player:FindFirstChildOfClass("Tool")
+    if tool then
+        local toolName = tool.Name:lower()
+        if toolName:find("knife") or toolName:find("dagger") or toolName:find("murder") or toolName:find("blade") then
+            return "Murderer"
         end
-        ESPObjects[player] = nil
+        if toolName:find("gun") or toolName:find("pistol") or toolName:find("sheriff") or toolName:find("revolver") then
+            return "Sheriff"
+        end
     end
-
-    local espGroup = Instance.new("Folder")
-    espGroup.Name = player.Name .. "_" .. HttpService:GenerateGUID(false)
-    espGroup.Parent = ESPFolder
-
-    -- 3D Box
-    local box = Instance.new("BoxHandleAdornment")
-    box.Size = Vector3.new(4, 6, 1)
-    box.AlwaysOnTop = _G.STARS_CONFIG.ESP.Wallhack
-    box.ZIndex = 20
-    box.Color3 = _G.STARS_CONFIG.ESP.BoxColor
-    box.Transparency = _G.STARS_CONFIG.ESP.BoxTransparency
-    box.Visible = false
-    box.Parent = espGroup
-
-    -- Billboard
-    local bill = Instance.new("BillboardGui")
-    bill.AlwaysOnTop = true
-    bill.Size = UDim2.new(0, 250, 0, 120)
-    bill.StudsOffset = Vector3.new(0, 4.5, 0)
-    bill.Parent = box
-
-    -- Имя игрока
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    nameLabel.TextScaled = true
-    nameLabel.Size = UDim2.new(1, 0, 0.35, 0)
-    nameLabel.Position = UDim2.new(0, 0, 0, 0)
-    nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.Text = player.Name
-    nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    nameLabel.TextStrokeTransparency = 0.5
-    nameLabel.Parent = bill
-
-    -- HP Bar фон
-    local hpBarBg = Instance.new("Frame")
-    hpBarBg.Size = UDim2.new(0.85, 0, 0.12, 0)
-    hpBarBg.Position = UDim2.new(0.075, 0, 0.4, 0)
-    hpBarBg.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    hpBarBg.BorderSizePixel = 1
-    hpBarBg.BorderColor3 = Color3.fromRGB(255, 255, 255)
-    hpBarBg.Parent = bill
-
-    -- HP Bar
-    local hpBar = Instance.new("Frame")
-    hpBar.Size = UDim2.new(1, 0, 1, 0)
-    hpBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-    hpBar.BorderSizePixel = 0
-    hpBar.Parent = hpBarBg
-
-    -- HP Текст
-    local hpText = Instance.new("TextLabel")
-    hpText.Size = UDim2.new(1, 0, 0.2, 0)
-    hpText.Position = UDim2.new(0, 0, 0.55, 0)
-    hpText.BackgroundTransparency = 1
-    hpText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    hpText.TextScaled = true
-    hpText.Font = Enum.Font.Gotham
-    hpText.Text = "100 HP"
-    hpText.Parent = bill
-
-    -- Armor Bar
-    local armorBarBg = Instance.new("Frame")
-    armorBarBg.Size = UDim2.new(0.5, 0, 0.08, 0)
-    armorBarBg.Position = UDim2.new(0.25, 0, 0.78, 0)
-    armorBarBg.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    armorBarBg.BorderSizePixel = 0
-    armorBarBg.Parent = bill
-
-    local armorBar = Instance.new("Frame")
-    armorBar.Size = UDim2.new(1, 0, 1, 0)
-    armorBar.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
-    armorBar.BorderSizePixel = 0
-    armorBar.Parent = armorBarBg
-
-    -- Tracer (линия)
-    local tracer = Instance.new("LineHandleAdornment")
-    tracer.AlwaysOnTop = true
-    tracer.ZIndex = 5
-    tracer.Color3 = _G.STARS_CONFIG.Tracers.Color
-    tracer.Thickness = _G.STARS_CONFIG.Tracers.Thickness
-    tracer.Visible = false
-    tracer.Parent = espGroup
-
-    -- Сохраняем объекты
-    ESPObjects[player] = {
-        Group = espGroup,
-        Box = box,
-        Tracer = tracer,
-        NameLabel = nameLabel,
-        HPBar = hpBar,
-        HPText = hpText,
-        ArmorBar = armorBar,
-        Health = 100,
-        Armor = 0,
-        LastHealth = 100,
-        LastPosition = Vector3.new(0, 0, 0),
-        IsDead = false
-    }
-
-    return ESPObjects[player]
+    
+    -- 2. ПРОВЕРКА ЧЕРЕЗ ШЛЯПЫ (для старых версий)
+    local hat = character:FindFirstChild("Hat")
+    if hat then
+        local hatName = hat.Name:lower()
+        if hatName:find("knife") or hatName:find("murder") or hatName:find("killer") then
+            return "Murderer"
+        end
+        if hatName:find("sheriff") or hatName:find("detective") or hatName:find("badge") then
+            return "Sheriff"
+        end
+    end
+    
+    -- 3. ПРОВЕРКА ЧЕРЕЗ ACCESSORY
+    for _, accessory in pairs(character:GetChildren()) do
+        if accessory:IsA("Accessory") then
+            local accName = accessory.Name:lower()
+            if accName:find("knife") or accName:find("murder") or accName:find("killer") then
+                return "Murderer"
+            end
+            if accName:find("sheriff") or accName:find("detective") or accName:find("badge") or accName:find("gun") then
+                return "Sheriff"
+            end
+        end
+    end
+    
+    -- 4. ПРОВЕРКА ЧЕРЕЗ ИМЯ (запасной вариант)
+    local nameLower = player.Name:lower()
+    if nameLower:find("murder") or nameLower:find("killer") or nameLower:find("knife") then
+        return "Murderer"
+    end
+    if nameLower:find("sheriff") or nameLower:find("detective") or nameLower:find("gun") then
+        return "Sheriff"
+    end
+    
+    return "Innocent"
 end
 
--- ═══════════════════════════════════════════════════
--- ФУНКЦИЯ: ОБНОВЛЕНИЕ ESP
--- ═══════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════════════════
+-- ПОЛУЧЕНИЕ ЦВЕТА РОЛИ
+-- ═══════════════════════════════════════════════════════════════════
+local function GetRoleColor(role)
+    return CONFIG.Roles[role] or CONFIG.Roles.Innocent
+end
+
+local function GetRoleIcon(role)
+    return CONFIG.RoleIcons[role] or "👤"
+end
+
+-- ═══════════════════════════════════════════════════════════════════
+-- СОЗДАНИЕ ESP ДЛЯ ИГРОКА (ПОЛНАЯ ВЕРСИЯ)
+-- ═══════════════════════════════════════════════════════════════════
+local function CreateESP(player)
+    if player == LocalPlayer then return end
+    if espData[player] then
+        -- Если уже есть, просто обновляем
+        return
+    end
+    
+    local role = GetPlayerRole(player)
+    local roleColor = GetRoleColor(role)
+    local roleIcon = GetRoleIcon(role)
+    
+    -- ═══════ ОСНОВНАЯ ПАПКА ═══════
+    local playerFolder = Instance.new("Folder")
+    playerFolder.Name = player.Name
+    playerFolder.Parent = ESPFolder
+    
+    -- ═══════ ПОДСВЕТКА (Highlight) ═══════
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "Highlight"
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Enabled = true
+    highlight.FillColor = roleColor
+    highlight.FillTransparency = 0.6
+    highlight.OutlineColor = CONFIG.OutlineColor  -- БЕЛАЯ ОБВОДКА
+    highlight.OutlineTransparency = 0.05
+    highlight.Parent = playerFolder
+    
+    -- ═══════ БИЛЛБОРД С ИМЕНЕМ ═══════
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "NameTag"
+    billboard.AlwaysOnTop = true
+    billboard.Size = UDim2.new(0, 300, 0, 60)
+    billboard.StudsOffset = Vector3.new(0, 3.8, 0)
+    billboard.MaxDistance = CONFIG.MaxDist
+    billboard.Parent = playerFolder
+    
+    -- ФОН ИМЕНИ (полупрозрачный)
+    local bg = Instance.new("Frame")
+    bg.Size = UDim2.new(1, 0, 1, 0)
+    bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    bg.BackgroundTransparency = 0.4
+    bg.BorderSizePixel = 2
+    bg.BorderColor3 = CONFIG.OutlineColor
+    bg.Parent = billboard
+    
+    -- САМ ТЕКСТ (имя + иконка)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = roleColor
+    label.TextScaled = true
+    label.Font = CONFIG.Font
+    label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    label.TextStrokeTransparency = 0.2
+    label.Text = roleIcon .. " " .. player.Name
+    label.Parent = billboard
+    
+    -- ═══════ 3D БОКС (для наглядности) ═══════
+    local box = Instance.new("BoxHandleAdornment")
+    box.Size = Vector3.new(3.5, 5.5, 1.5)
+    box.AlwaysOnTop = true
+    box.ZIndex = 10
+    box.Color3 = roleColor
+    box.Transparency = 0.5
+    box.Visible = false
+    box.Parent = playerFolder
+    
+    -- ═══════ СОХРАНЯЕМ ДАННЫЕ ═══════
+    espData[player] = {
+        Folder = playerFolder,
+        Highlight = highlight,
+        Billboard = billboard,
+        Label = label,
+        Box = box,
+        Role = role,
+        LastRole = role,
+        Character = player.Character,
+        IsDead = false,
+        LastHealth = 100
+    }
+    
+    -- Привязываем Highlight к персонажу
+    if player.Character then
+        highlight.Adornee = player.Character
+        box.Adornee = player.Character:FindFirstChild("HumanoidRootPart")
+    end
+    
+    print("✅ " .. player.Name .. " [" .. role .. "]")
+end
+
+-- ═══════════════════════════════════════════════════════════════════
+-- ОБНОВЛЕНИЕ ESP
+-- ═══════════════════════════════════════════════════════════════════
 local function UpdateESP()
-    if not _G.STARS_CONFIG.ESP.Enabled then
-        for _, data in pairs(ESPObjects) do
-            if data.Box then
-                data.Box.Visible = false
-                data.Tracer.Visible = false
+    if not CONFIG.Enabled then
+        for _, data in pairs(espData) do
+            if data.Highlight then
+                data.Highlight.Enabled = false
+            end
+            if data.Billboard then
+                data.Billboard.Enabled = false
             end
         end
         return
     end
-
-    local localChar = LocalPlayer.Character
-    if not localChar or not localChar:FindFirstChild("HumanoidRootPart") then return end
-
+    
     local camPos = Camera.CFrame.Position
-    local camLookVector = Camera.CFrame.LookVector
-
-    for player, data in pairs(ESPObjects) do
-        if not data.Box or not data.Box.Parent then
-            ESPObjects[player] = nil
+    
+    for player, data in pairs(espData) do
+        if not data.Folder or not data.Folder.Parent then
+            espData[player] = nil
             break
         end
-
+        
+        -- Проверяем персонажа
         local char = player.Character
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
         local humanoid = char and char:FindFirstChild("Humanoid")
-
-        if hrp and humanoid and _G.STARS_CONFIG.ESP.Enabled then
-            local dist = (hrp.Position - camPos).Magnitude
-
-            if dist <= _G.STARS_CONFIG.ESP.MaxDistance then
-                -- Показываем объекты
-                data.Box.Visible = true
-                data.Box.Adornee = hrp
-
-                -- Динамический размер бокса
-                local sizeMultiplier = 1 + (0.3 / (dist/10 + 1))
-                local boxSize = Vector3.new(4, 6, 1) * sizeMultiplier
-                data.Box.Size = boxSize
-
-                -- Цвет бокса по здоровью
-                local healthPercent = humanoid.Health / humanoid.MaxHealth
-                local color
-                if healthPercent > 0.6 then
-                    color = Color3.fromRGB(0, 255, 0)
-                elseif healthPercent > 0.3 then
-                    color = Color3.fromRGB(255, 255, 0)
-                else
-                    color = Color3.fromRGB(255, 0, 0)
-                end
-                data.Box.Color3 = color
-
-                -- Обновление имени
-                local displayText = ""
-                if _G.STARS_CONFIG.ESP.ShowName then
-                    displayText = player.Name
-                end
-                if _G.STARS_CONFIG.ESP.ShowDistance then
-                    displayText = displayText .. " [" .. math.floor(dist) .. "m]"
-                end
-                data.NameLabel.Text = displayText
-
-                -- Обновление HP
-                if _G.STARS_CONFIG.ESP.ShowHealth then
-                    data.HPBar.Size = UDim2.new(healthPercent, 0, 1, 0)
-                    data.HPText.Text = math.floor(humanoid.Health) .. " / " .. math.floor(humanoid.MaxHealth) .. " HP"
-                    data.HPText.Visible = true
-                    data.HPBar.Parent.Visible = true
-
-                    -- Цвет HP бар
-                    if healthPercent > 0.6 then
-                        data.HPBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-                    elseif healthPercent > 0.3 then
-                        data.HPBar.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
-                    else
-                        data.HPBar.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-                    end
-
-                    -- Мигание при низком HP
-                    if _G.STARS_CONFIG.ESP.HighlightLowHP and healthPercent < (_G.STARS_CONFIG.ESP.HealthThreshold / 100) then
-                        data.Box.Transparency = 0.1 + 0.2 * math.sin(os.clock() * 4)
-                        data.Box.Size = boxSize * 1.2
-                        data.HPBar.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-                    else
-                        data.Box.Transparency = _G.STARS_CONFIG.ESP.BoxTransparency
-                    end
-                else
-                    data.HPText.Visible = false
-                    data.HPBar.Parent.Visible = false
-                end
-
-                -- Armor
-                local armor = 0
-                if char:FindFirstChild("Humanoid") and char.Humanoid:FindFirstChild("Armor") then
-                    armor = char.Humanoid.Armor.Value
-                end
-                if _G.STARS_CONFIG.ESP.ShowArmor and armor > 0 then
-                    armorBar.Size = UDim2.new(math.min(armor / 100, 1), 0, 1, 0)
-                    armorBar.Parent.Visible = true
-                else
-                    armorBar.Parent.Visible = false
-                end
-
-                -- Tracers
-                if _G.STARS_CONFIG.Tracers.Enabled then
-                    data.Tracer.Visible = true
-                    local fromPos = _G.STARS_CONFIG.Tracers.FromBottom and 
-                                    Vector3.new(camPos.X, camPos.Y - 2, camPos.Z) or 
-                                    camPos
-                    data.Tracer.From = fromPos
-                    data.Tracer.To = hrp.Position
-                    data.Tracer.Color3 = _G.STARS_CONFIG.Tracers.Color
-                else
-                    data.Tracer.Visible = false
-                end
-
-                -- Отслеживание смерти
-                if humanoid.Health <= 0 and not data.IsDead then
-                    data.IsDead = true
-                    if _G.STARS_CONFIG.Damage.ShowKills then
-                        ShowKillAnnouncement(player)
-                    end
-                elseif humanoid.Health > 0 then
-                    data.IsDead = false
-                end
-
-            else
+        
+        -- ===== ОБРАБОТКА СМЕРТИ =====
+        if not char or not hrp or not humanoid or humanoid.Health <= 0 then
+            -- Игрок мёртв: скрываем Highlight, но оставляем биллборд с пометкой
+            data.IsDead = true
+            if data.Highlight then
+                data.Highlight.Enabled = false
+            end
+            if data.Box then
                 data.Box.Visible = false
-                data.Tracer.Visible = false
             end
+            if data.Billboard then
+                data.Billboard.Enabled = true
+                data.Label.Text = "💀 " .. player.Name .. " (МЁРТВ)"
+                data.Label.TextColor3 = Color3.fromRGB(150, 150, 150)
+            end
+            continue
+        end
+        
+        -- ===== ИГРОК ЖИВ =====
+        data.IsDead = false
+        
+        -- Обновляем роль (на случай смены)
+        local newRole = GetPlayerRole(player)
+        if newRole ~= data.Role then
+            data.Role = newRole
+            local color = GetRoleColor(newRole)
+            data.Highlight.FillColor = color
+            data.Label.TextColor3 = color
+            data.Label.Text = GetRoleIcon(newRole) .. " " .. player.Name
+            data.Box.Color3 = color
+        end
+        
+        -- Привязываем к персонажу
+        if data.Highlight then
+            data.Highlight.Adornee = char
+            data.Highlight.Enabled = true
+        end
+        
+        -- Обновляем бокс
+        if data.Box and hrp then
+            data.Box.Adornee = hrp
+            data.Box.Visible = true
+        end
+        
+        -- ===== РАССТОЯНИЕ =====
+        local dist = (hrp.Position - camPos).Magnitude
+        local isVisible = dist <= CONFIG.MaxDist
+        
+        if data.Billboard then
+            data.Billboard.Enabled = isVisible
+            if isVisible then
+                -- Добавляем дистанцию
+                if CONFIG.ShowDistance then
+                    data.Label.Text = GetRoleIcon(data.Role) .. " " .. player.Name .. " [" .. math.floor(dist) .. "m]"
+                else
+                    data.Label.Text = GetRoleIcon(data.Role) .. " " .. player.Name
+                end
+                
+                -- Цвет текста по роли
+                data.Label.TextColor3 = GetRoleColor(data.Role)
+                
+                -- Размер текста в зависимости от расстояния
+                local size = CONFIG.TextSize
+                if dist > 100 then
+                    size = size * (1 - (dist - 100) / CONFIG.MaxDist * 0.5)
+                end
+                data.Label.TextSize = math.max(12, size)
+            end
+        end
+        
+        -- ===== ЗДОРОВЬЕ (если низкое - мигаем) =====
+        if humanoid and humanoid.Health < 30 then
+            data.Highlight.FillColor = Color3.fromRGB(255, 0, 0)
+            data.Highlight.OutlineColor = Color3.fromRGB(255, 200, 0)
+            data.Highlight.FillTransparency = 0.3 + 0.3 * math.sin(os.clock() * 4)
         else
-            -- Скрываем, но не удаляем (ESP остаётся после смерти)
-            data.Box.Visible = false
-            data.Tracer.Visible = false
+            data.Highlight.FillColor = GetRoleColor(data.Role)
+            data.Highlight.OutlineColor = CONFIG.OutlineColor
+            data.Highlight.FillTransparency = 0.6
         end
     end
 end
 
--- ═══════════════════════════════════════════════════
--- ФУНКЦИЯ: AIMBOT (Автоматическое наведение)
--- ═══════════════════════════════════════════════════
-local function GetPredictedPosition(player, targetPart)
-    if not _G.STARS_CONFIG.Aimbot.Prediction then return targetPart.Position end
-
-    local char = player.Character
-    if not char then return targetPart.Position end
-
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return targetPart.Position end
-
-    local velocity = root.Velocity
-    local dist = (targetPart.Position - Camera.CFrame.Position).Magnitude
-    local bulletSpeed = 2000
-    local time = dist / bulletSpeed
-
-    return targetPart.Position + velocity * time
-end
-
-local function IsPointOnScreen(point)
-    local screenPos, onScreen = Camera:WorldToScreenPoint(point)
-    return onScreen and screenPos.Z > 0
-end
-
-local function GetClosestPlayer()
-    local localChar = LocalPlayer.Character
-    if not localChar or not localChar:FindFirstChild("HumanoidRootPart") then
-        return nil
-    end
-
-    local bestTarget = nil
-    local bestDist = _G.STARS_CONFIG.Aimbot.FOV
-    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-
-    for player, data in pairs(ESPObjects) do
-        if player == LocalPlayer then continue end
-        
-        if _G.STARS_CONFIG.Misc.TeamCheck and _G.STARS_CONFIG.Misc.IgnoreTeammates then
-            if player.Team and LocalPlayer.Team and player.Team == LocalPlayer.Team then
-                continue
+-- ═══════════════════════════════════════════════════════════════════
+-- ОБРАБОТЧИК ПЕРСОНАЖА (для новых игроков)
+-- ═══════════════════════════════════════════════════════════════════
+local function OnCharacterAdded(player, character)
+    task.wait(0.3)
+    if espData[player] then
+        -- Обновляем существующий ESP
+        local data = espData[player]
+        if data.Highlight then
+            data.Highlight.Adornee = character
+        end
+        if data.Box then
+            local hrp = character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                data.Box.Adornee = hrp
             end
         end
-
-        local char = player.Character
-        if not char then continue end
-
-        local aimPart = char:FindFirstChild(_G.STARS_CONFIG.Aimbot.AimPart)
-        if not aimPart then
-            aimPart = char:FindFirstChild("HumanoidRootPart")
-        end
-        if not aimPart then continue end
-
-        local pos = GetPredictedPosition(player, aimPart)
-        local screenPos, onScreen = Camera:WorldToScreenPoint(pos)
-        
-        if not onScreen or screenPos.Z <= 0 then continue end
-
-        local dist = (pos - Camera.CFrame.Position).Magnitude
-        if dist > _G.STARS_CONFIG.ESP.MaxDistance then continue end
-
-        if _G.STARS_CONFIG.Aimbot.VisibleCheck then
-            local params = RaycastParams.new()
-            params.FilterType = Enum.RaycastFilterType.Blacklist
-            params.FilterDescendantsInstances = {localChar, char}
-            
-            local ray = RaycastParams.new()
-            local result = workspace:Raycast(Camera.CFrame.Position, (pos - Camera.CFrame.Position).Unit * dist, params)
-            if result and not result.Instance:IsDescendantOf(char) then
-                continue
-            end
-        end
-
-        local offset = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-        if offset < bestDist then
-            bestDist = offset
-            bestTarget = {
-                Player = player,
-                Part = aimPart,
-                Pos = pos,
-                Distance = dist,
-                Offset = offset
-            }
-        end
+        data.Character = character
+        data.IsDead = false
+        -- Обновляем роль
+        local role = GetPlayerRole(player)
+        data.Role = role
+        local color = GetRoleColor(role)
+        data.Highlight.FillColor = color
+        data.Label.TextColor3 = color
+        data.Label.Text = GetRoleIcon(role) .. " " .. player.Name
+        data.Box.Color3 = color
+    else
+        -- Создаём заново
+        CreateESP(player)
     end
-
-    return bestTarget
 end
 
-local function Aimbot()
-    if not _G.STARS_CONFIG.Aimbot.Enabled then return end
-
-    if not UserInputService:IsKeyDown(_G.STARS_CONFIG.Aimbot.KeyBind) then
-        return
-    end
-
-    local target = GetClosestPlayer()
-    if not target then return end
-
-    local currentPos = Camera.CFrame.Position
-    local lookAt = target.Pos
-
-    local newCFrame = CFrame.lookAt(currentPos, lookAt)
-    local currentCFrame = Camera.CFrame
-
-    local smooth = _G.STARS_CONFIG.Aimbot.Smoothness
-    local lerpCFrame = currentCFrame:Lerp(newCFrame, smooth)
-
-    Camera.CFrame = lerpCFrame
-end
-
--- ═══════════════════════════════════════════════════
--- ФУНКЦИЯ: УВЕДОМЛЕНИЯ ОБ УРОНЕ
--- ═══════════════════════════════════════════════════
-local function ShowDamageNotification(player, damage, isHeal)
-    if isHeal and not _G.STARS_CONFIG.Damage.ShowHeal then return end
-    if not isHeal and not _G.STARS_CONFIG.Damage.ShowDamage then return end
-
-    local char = player.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-
-    local screenPos, onScreen = Camera:WorldToScreenPoint(char.HumanoidRootPart.Position)
-    if not onScreen then return end
-
-    local label = Instance.new("TextLabel")
-    label.Text = (isHeal and "+" or "-") .. math.abs(damage)
-    label.TextColor3 = isHeal and _G.STARS_CONFIG.Damage.HealColor or _G.STARS_CONFIG.Damage.DamageColor
-    label.TextScaled = true
-    label.Font = Enum.Font.GothamBold
-    label.BackgroundTransparency = 1
-    label.Size = UDim2.new(0, 120, 0, 50)
-    label.Position = UDim2.new(0, screenPos.X - 60, 0, screenPos.Y - 60)
-    label.Parent = CoreGui
-
-    -- Анимация
-    TweenService:Create(label, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        Position = UDim2.new(0, screenPos.X - 60, 0, screenPos.Y - 180),
-        TextTransparency = 1
-    }):Play()
-
-    task.wait(1.2)
-    label:Destroy()
-end
-
-local function ShowKillAnnouncement(player)
-    local label = Instance.new("TextLabel")
-    label.Text = "☠ " .. player.Name .. " УБИТ! ☠"
-    label.TextColor3 = _G.STARS_CONFIG.Damage.KillColor
-    label.TextScaled = true
-    label.Font = Enum.Font.GothamBold
-    label.BackgroundTransparency = 1
-    label.Size = UDim2.new(0, 300, 0, 40)
-    label.Position = UDim2.new(0.5, -150, 0.2, 0)
-    label.Parent = CoreGui
-
-    -- Анимация
-    TweenService:Create(label, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        Position = UDim2.new(0.5, -150, 0.1, 0),
-        TextTransparency = 1
-    }):Play()
-
-    task.wait(1.5)
-    label:Destroy()
-end
-
--- ═══════════════════════════════════════════════════
--- ФУНКЦИЯ: МЕНЮ НАСТРОЕК
--- ═══════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════════════════
+-- МЕНЮ (УЛУЧШЕННОЕ)
+-- ═══════════════════════════════════════════════════════════════════
 local function CreateMenu()
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "StarsMenu_10X"
-    screenGui.Parent = CoreGui
-
+    local menuGui = Instance.new("ScreenGui")
+    menuGui.Name = "MM2_Menu_PRO"
+    menuGui.Parent = CoreGui
+    
     local frame = Instance.new("Frame")
-    frame.Size = _G.STARS_CONFIG.Menu.MenuSize
-    frame.Position = _G.STARS_CONFIG.Menu.MenuPosition
-    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
-    frame.BackgroundTransparency = _G.STARS_CONFIG.Menu.Transparency
+    frame.Size = UDim2.new(0, 250, 0, 180)
+    frame.Position = UDim2.new(0.5, -125, 0.5, -90)
+    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 25)
+    frame.BackgroundTransparency = 0.1
     frame.BorderSizePixel = 3
-    frame.BorderColor3 = Color3.fromRGB(0, 255, 200)
+    frame.BorderColor3 = Color3.fromRGB(255, 255, 255)
     frame.Active = true
     frame.Draggable = true
-    frame.ClipsDescendants = false
-    frame.Visible = _G.STARS_CONFIG.Menu.ShowMenuOnStart
-    frame.Parent = screenGui
-
+    frame.Parent = menuGui
+    
     -- Заголовок
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 50)
+    title.Size = UDim2.new(1, 0, 0, 35)
     title.BackgroundTransparency = 1
-    title.Text = "★ STARS ESP 10X ULTRA ★"
-    title.TextColor3 = Color3.fromRGB(0, 255, 200)
+    title.Text = "🔪 MM2 ESP PRO"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.TextScaled = true
     title.Font = Enum.Font.GothamBold
     title.Parent = frame
-
+    
     -- Кнопка закрытия
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 40, 0, 40)
-    closeBtn.Position = UDim2.new(1, -45, 0, 5)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-    closeBtn.Text = "✕"
-    closeBtn.TextColor3 = Color3.new(1, 1, 1)
-    closeBtn.TextScaled = true
-    closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.Parent = frame
-
-    closeBtn.MouseButton1Click:Connect(function()
+    local close = Instance.new("TextButton")
+    close.Size = UDim2.new(0, 30, 0, 30)
+    close.Position = UDim2.new(1, -35, 0, 2)
+    close.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+    close.Text = "✕"
+    close.TextColor3 = Color3.new(1, 1, 1)
+    close.TextScaled = true
+    close.Font = Enum.Font.GothamBold
+    close.Parent = frame
+    close.MouseButton1Click:Connect(function()
         frame.Visible = false
         openBtn.Visible = true
+        MenuOpen = false
     end)
-
+    
     -- Кнопка открытия
     local openBtn = Instance.new("TextButton")
     openBtn.Size = UDim2.new(0, 50, 0, 50)
     openBtn.Position = UDim2.new(0, 10, 0, 10)
-    openBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
-    openBtn.Text = "★"
-    openBtn.TextColor3 = Colo
+    openBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    openBtn.BackgroundTransparency = 0.2
+    openBtn.Text = "🔪"
+    openBtn.TextColor3 = Color3.new(1, 1, 1)
+    openBtn.TextScaled = true
+    openBtn.Font = Enum.Font.GothamBold
+    openBtn.Visible = false
+    openBtn.Parent = menuGui
+    openBtn.MouseButton1Click:Connect(function()
+        frame.Visible = true
+        openBtn.Visible = false
+        MenuOpen = true
+    end)
+    
+    -- Кнопка Вкл/Выкл
+    local toggle = Instance.new("TextButton")
+    toggle.Size = UDim2.new(0.8, 0, 0, 35)
+    toggle.Position = UDim2.new(0.1, 0, 0.4, 0)
+    toggle.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+    toggle.Text = "ВЫКЛЮЧИТЬ"
+    toggle.TextColor3 = Color3.new(1, 1, 1)
+    toggle.TextScaled = true
+    toggle.Font = Enum.Font.GothamBold
+    toggle.Parent = frame
+    toggle.MouseButton1Click:Connect(function()
+        CONFIG.Enabled = not CONFIG.Enabled
+        toggle.Text = CONFIG.Enabled and "ВЫКЛЮЧИТЬ" or "ВКЛЮЧИТЬ"
+        toggle.BackgroundColor3 = CONFIG.Enabled and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
+        for _, data in pairs(espData) do
+            if data.Highlight then
+                data.Highlight.Enabled = CONFIG.Enabled
+            end
+            if data.Billboard then
+                data.Billboard.Enabled = CONFIG.Enabled
+            end
+        end
+    end)
+    
+    -- Информация о ролях
+    local infoFrame = Instance.new("Frame")
+    infoFrame.Size = UDim2.new(0.9, 0, 0, 30)
+    infoFrame.Position = UDim2.new(0.05, 0, 0.7, 0)
+    infoFrame.BackgroundTransparency = 1
+    infoFrame.Parent = frame
+    
+    local roles = {
+        {text = "🔴 Убийца", color = Color3.fromRGB(255, 0, 0)},
+        {text = "🔵 Шериф", color = Color3.fromRGB(0, 150, 255)},
+        {text = "🟢 Мирный", color = Color3.fromRGB(0, 255, 100)}
+    }
+    
+    for i, role in ipairs(roles) do
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0.3, 0, 1, 0)
+        label.Position = UDim2.new((i-1) * 0.34, 0, 0, 0)
+        label.BackgroundTransparency = 1
+        label.Text = role.text
+        label.TextColor3 = role.color
+        label.TextScaled = true
+        label.Font = Enum.Font.Gotham
+        label.Parent = infoFrame
+    end
+    
+    -- Кнопка перезапуска
+    local resetBtn = Instance.new("TextButton")
+    resetBtn.Size = UDim2.new(0.3, 0, 0, 30)
+    resetBtn.Position = UDim2.new(0.7, 0, 0.4, 0)
+    resetBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 0)
+    resetBtn.Text = "🔄"
+    resetBtn.TextColor3 = Color3.new(1, 1, 1)
+    resetBtn.TextScaled = true
+    resetBtn.Font = Enum.Font.GothamBold
+    resetBtn.Parent = frame
+    resetBtn.MouseButton1Click:Connect(function()
+        ESPFolder:Destroy()
+        menuGui:Destroy()
+        print("🔄 Перезапуск...")
+        task.wait(0.5)
+        loadstring(game:HttpGet("https://pastebin.com/raw/YOUR_CODE", true))()
+    end)
+    
+    -- Горячая клавиша F1
+    UserInput.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode == Enum.KeyCode.F1 then
+            frame.Visible = not frame.Visible
+            openBtn.Visible = not frame.Visible
+            MenuOpen = frame.Visible
+        end
+    end)
+    
+    return frame, openBtn
+end
+
+-- ═══════════════════════════════════════════════════════════════════
+-- ЗАПУСК
+-- ═══════════════════════════════════════════════════════════════════
+local function Init()
+    print("═══════════════════════════════════════════════")
+    print("🔪 MM2 ESP PRO ЗАПУСК...")
+    print("═══════════════════════════════════════════════")
+    
+    -- Очистка старых объектов
+    if CoreGui:FindFirstChild("MM2_ESP_PRO") then
+        CoreGui:FindFirstChild("MM2_ESP_PRO"):Destroy()
+    end
+    if CoreGui:FindFirstChild("MM2_Menu_PRO") then
+        CoreGui:FindFirstChild("MM2_Menu_PRO"):Destroy()
+    end
+    
+    -- Создаём папку
+    ESPFolder = Instance.new("Folder")
+    ESPFolder.Name = "MM2_ESP_PRO"
+    ESPFolder.Parent = CoreGui
+    
+    -- Создаём ESP для всех игроков
+    local players = Players:GetPlayers()
+    for i, player in ipairs(players) do
+        if player ~= LocalPlayer then
+            task.wait(0.05)
+            CreateESP(player)
+        end
+    end
+    
+    -- Создаём меню
+    CreateMenu()
+    
+    -- Основной цикл обновления
+    RunService.Heartbeat:Connect(function()
+        pcall(UpdateESP)
+    end)
+    
+    -- Обработка новых игроков
+    Players.PlayerAdded:Connect(function(player)
+        task.wait(0.5)
+        if player ~= LocalPlayer then
+            CreateESP(player)
+            -- Подписываемся на появление персонажа
+            player.CharacterAdded:Connect(function(char)
+                OnCharacterAdded(player, char)
+            end)
+        end
+    end)
+    
+    -- Обработка выхода игроков
+    Players.PlayerRemoving:Connect(function(player)
+        if espData[player] then
+            if espData[player].Folder then
+                espData[player].Folder:Destroy()
+            end
+            espData[player] = nil
+        end
+    end)
+    
+    -- Подписываемся на существующих игроков
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            player.CharacterAdded:Connect(function(char)
+                OnCharacterAdded(player, char)
+            end)
+        end
+    end
+    
+    print("═══════════════════════════════════════════════")
+    print("✅ MM2 ESP PRO УСПЕШНО ЗАПУЩЕН!")
+    print("📌 F1 - Меню")
+    print("📌 Роли: 🔴 Убийца  🔵 Шериф  🟢 Мирный")
+    print("📌 ESP остаётся после смерти")
+    print("📌 Отключить: _G.STOP_MM2 = true")
+    print("═══════════════════════════════════════════════")
+end
+
+-- Запуск
+local success, err = pcall(Init)
+if not success then
+    print("❌ Ошибка запуска: " .. tostring(err))
+end
+
+-- Отключение
+RunService.Heartbeat:Connect(function()
+    if _G.STOP_MM2 then
+        if CoreGui:FindFirstChild("MM2_ESP_PRO") then
+            CoreGui:FindFirstChild("MM2_ESP_PRO"):Destroy()
+        end
+        if CoreGui:FindFirstChild("MM2_Menu_PRO") then
+            CoreGui:FindFirstChild("MM2_Menu_PRO"):Destroy()
+        end
+        espData = {}
+        _G.STOP_MM2 = nil
+        print("🔪 MM2 ESP PRO ОСТАНОВЛЕН")
+    end
+end)
+
+-- ═══════════════════════════════════════════════════════════════════
+-- КОНЕЦ
+-- ═══════════════════════════════════════════════════════════════════
