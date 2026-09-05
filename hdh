@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════
--- ULTRA ESP | ЧЁРНОЕ МЕНЮ + РАДУЖНАЯ ОБВОДКА
+-- ULTRA ESP | ЧЁРНОЕ МЕНЮ + РАДУЖНАЯ ОБВОДКА (UIStroke)
 -- ═══════════════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
@@ -39,6 +39,7 @@ local squareBtn = nil
 local menuFrame = nil
 local menuGui = nil
 local rainbowThread = nil
+local strokeObjects = {} -- Для хранения всех обводок
 
 -- ═══════════════════════════════════════════════════════════════════
 -- РАДУЖНАЯ АНИМАЦИЯ
@@ -50,7 +51,7 @@ local function RainbowColor(t)
     return Color3.new(r, g, b)
 end
 
-local function StartRainbow(objects)
+local function StartRainbow()
     if rainbowThread then
         rainbowThread = nil
     end
@@ -59,14 +60,29 @@ local function StartRainbow(objects)
         while rainbowThread do
             t = t + 0.03
             local color = RainbowColor(t)
-            for _, obj in pairs(objects) do
-                if obj and obj.Parent then
-                    obj.BorderColor3 = color
+            -- Обновляем все обводки
+            for _, stroke in pairs(strokeObjects) do
+                if stroke and stroke.Parent then
+                    stroke.Color = color
                 end
             end
             task.wait(0.05)
         end
     end)
+end
+
+-- ═══════════════════════════════════════════════════════════════════
+-- ФУНКЦИЯ ДОБАВЛЕНИЯ ОБВОДКИ
+-- ═══════════════════════════════════════════════════════════════════
+local function AddStroke(obj, thickness, transparency)
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = thickness or 2
+    stroke.Color = Color3.fromRGB(255, 0, 0) -- Начальный цвет
+    stroke.Transparency = transparency or 0
+    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    stroke.Parent = obj
+    table.insert(strokeObjects, stroke)
+    return stroke
 end
 
 -- ═══════════════════════════════════════════════════════════════════
@@ -166,10 +182,9 @@ local function CreateMenu()
     menuFrame = Instance.new("Frame")
     menuFrame.Size = UDim2.new(0, 190, 0, 210)
     menuFrame.Position = UDim2.new(0.5, -95, 0.5, -105)
-    menuFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- ПОЛНОСТЬЮ ЧЁРНЫЙ
-    menuFrame.BackgroundTransparency = 0 -- НЕПРОЗРАЧНЫЙ
-    menuFrame.BorderSizePixel = 3
-    menuFrame.BorderColor3 = Color3.fromRGB(255, 0, 0) -- Начальный цвет (будет меняться)
+    menuFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    menuFrame.BackgroundTransparency = 0
+    menuFrame.BorderSizePixel = 0
     menuFrame.ClipsDescendants = true
     menuFrame.Active = true
     menuFrame.Draggable = true
@@ -181,19 +196,24 @@ local function CreateMenu()
     corner.CornerRadius = UDim.new(0, 16)
     corner.Parent = menuFrame
     
+    -- РАДУЖНАЯ ОБВОДКА ДЛЯ МЕНЮ
+    local menuStroke = AddStroke(menuFrame, 3, 0)
+    
     -- ЗАГОЛОВОК
     local header = Instance.new("Frame")
     header.Size = UDim2.new(1, 0, 0, 42)
     header.Position = UDim2.new(0, 0, 0, 0)
     header.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
     header.BackgroundTransparency = 0
-    header.BorderSizePixel = 2
-    header.BorderColor3 = Color3.fromRGB(255, 0, 0)
+    header.BorderSizePixel = 0
     header.Parent = menuFrame
     
     local headerCorner = Instance.new("UICorner")
     headerCorner.CornerRadius = UDim.new(0, 14)
     headerCorner.Parent = header
+    
+    -- РАДУЖНАЯ ОБВОДКА ДЛЯ ЗАГОЛОВКА
+    local headerStroke = AddStroke(header, 2, 0)
     
     -- ИКОНКА
     local icon = Instance.new("TextLabel")
@@ -224,8 +244,7 @@ local function CreateMenu()
     closeBtn.Position = UDim2.new(1, -34, 0, 7)
     closeBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     closeBtn.BackgroundTransparency = 0
-    closeBtn.BorderSizePixel = 2
-    closeBtn.BorderColor3 = Color3.fromRGB(255, 0, 0)
+    closeBtn.BorderSizePixel = 0
     closeBtn.Text = "✕"
     closeBtn.TextColor3 = Color3.new(1, 1, 1)
     closeBtn.TextScaled = true
@@ -235,6 +254,9 @@ local function CreateMenu()
     local closeCorner = Instance.new("UICorner")
     closeCorner.CornerRadius = UDim.new(0, 8)
     closeCorner.Parent = closeBtn
+    
+    -- РАДУЖНАЯ ОБВОДКА ДЛЯ КНОПКИ ЗАКРЫТИЯ
+    local closeStroke = AddStroke(closeBtn, 2, 0)
     
     closeBtn.MouseButton1Click:Connect(function()
         menuFrame.Visible = false
@@ -251,8 +273,7 @@ local function CreateMenu()
     squareBtn.Position = UDim2.new(0, 15, 0, 15)
     squareBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     squareBtn.BackgroundTransparency = 0
-    squareBtn.BorderSizePixel = 3
-    squareBtn.BorderColor3 = Color3.fromRGB(255, 0, 0)
+    squareBtn.BorderSizePixel = 0
     squareBtn.Text = "✨"
     squareBtn.TextColor3 = Color3.new(1, 1, 1)
     squareBtn.TextScaled = true
@@ -263,6 +284,9 @@ local function CreateMenu()
     local squareCorner = Instance.new("UICorner")
     squareCorner.CornerRadius = UDim.new(0, 14)
     squareCorner.Parent = squareBtn
+    
+    -- РАДУЖНАЯ ОБВОДКА ДЛЯ КВАДРАТИКА
+    local squareStroke = AddStroke(squareBtn, 3, 0)
     
     -- ТЕНЬ ДЛЯ КВАДРАТИКА
     local shadow = Instance.new("Frame")
@@ -309,8 +333,7 @@ local function CreateMenu()
         btn.Position = UDim2.new(0, 0, 0, yPos)
         btn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
         btn.BackgroundTransparency = 0
-        btn.BorderSizePixel = 2
-        btn.BorderColor3 = Color3.fromRGB(255, 0, 0)
+        btn.BorderSizePixel = 0
         btn.Text = icon .. " " .. text
         btn.TextColor3 = Color3.new(1, 1, 1)
         btn.TextScaled = true
@@ -320,6 +343,9 @@ local function CreateMenu()
         local btnCorner = Instance.new("UICorner")
         btnCorner.CornerRadius = UDim.new(0, 8)
         btnCorner.Parent = btn
+        
+        -- РАДУЖНАЯ ОБВОДКА ДЛЯ КНОПКИ
+        local btnStroke = AddStroke(btn, 2, 0)
         
         return btn
     end
@@ -383,16 +409,7 @@ local function CreateMenu()
     footer.Parent = menuFrame
     
     -- ═══════ ЗАПУСК РАДУЖНОЙ АНИМАЦИИ ═══════
-    local rainbowObjects = {
-        menuFrame,
-        header,
-        closeBtn,
-        squareBtn,
-        toggleBtn,
-        distBtn,
-        colorBtn
-    }
-    StartRainbow(rainbowObjects)
+    StartRainbow()
     
     -- ═══════ F1 — переключение ═══════
     UserInput.InputBegan:Connect(function(input, gp)
@@ -434,6 +451,9 @@ local function Init()
     if CoreGui:FindFirstChild("UltraMenu") then
         CoreGui:FindFirstChild("UltraMenu"):Destroy()
     end
+    
+    -- Очищаем список обводок
+    strokeObjects = {}
     
     ESPFolder = Instance.new("Folder")
     ESPFolder.Name = "UltraESP"
@@ -500,6 +520,7 @@ RunService.Heartbeat:Connect(function()
         if rainbowThread then
             rainbowThread = nil
         end
+        strokeObjects = {}
         _G.STOP_ESP = nil
         print("✨ ULTRA ESP ОСТАНОВЛЕН")
     end
