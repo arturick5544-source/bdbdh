@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════
--- ULTRA ESP | УНИВЕРСАЛЬНЫЙ | МЕНЮ С КНОПКОЙ-КВАДРАТИКОМ
+-- ULTRA ESP | ЧЁРНОЕ МЕНЮ + РАДУЖНАЯ ОБВОДКА
 -- ═══════════════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
@@ -21,8 +21,8 @@ end
 local CONFIG = {
     Enabled = true,
     MaxDist = 500,
-    OutlineColor = Color3.fromRGB(255, 255, 255), -- Белая обводка
-    FillColor = Color3.fromRGB(0, 255, 200),      -- Цвет заливки
+    OutlineColor = Color3.fromRGB(255, 255, 255),
+    FillColor = Color3.fromRGB(0, 255, 200),
     FillTransparency = 0.7,
     OutlineTransparency = 0.1
 }
@@ -35,8 +35,39 @@ ESPFolder.Name = "UltraESP"
 ESPFolder.Parent = CoreGui
 
 local espData = {}
-local MenuOpen = true
-local isMenuVisible = true
+local squareBtn = nil
+local menuFrame = nil
+local menuGui = nil
+local rainbowThread = nil
+
+-- ═══════════════════════════════════════════════════════════════════
+-- РАДУЖНАЯ АНИМАЦИЯ
+-- ═══════════════════════════════════════════════════════════════════
+local function RainbowColor(t)
+    local r = math.sin(t) * 0.5 + 0.5
+    local g = math.sin(t + 2.094) * 0.5 + 0.5
+    local b = math.sin(t + 4.188) * 0.5 + 0.5
+    return Color3.new(r, g, b)
+end
+
+local function StartRainbow(objects)
+    if rainbowThread then
+        rainbowThread = nil
+    end
+    rainbowThread = spawn(function()
+        local t = 0
+        while rainbowThread do
+            t = t + 0.03
+            local color = RainbowColor(t)
+            for _, obj in pairs(objects) do
+                if obj and obj.Parent then
+                    obj.BorderColor3 = color
+                end
+            end
+            task.wait(0.05)
+        end
+    end)
+end
 
 -- ═══════════════════════════════════════════════════════════════════
 -- СОЗДАНИЕ ОБВОДКИ (Highlight)
@@ -124,52 +155,41 @@ local function UpdateESP()
 end
 
 -- ═══════════════════════════════════════════════════════════════════
--- МЕНЮ С КНОПКОЙ-КВАДРАТИКОМ
+-- МЕНЮ (ЧЁРНОЕ + РАДУЖНАЯ ОБВОДКА)
 -- ═══════════════════════════════════════════════════════════════════
 local function CreateMenu()
-    local menuGui = Instance.new("ScreenGui")
+    menuGui = Instance.new("ScreenGui")
     menuGui.Name = "UltraMenu"
     menuGui.Parent = CoreGui
     
-    -- ═══════ ОСНОВНОЕ МЕНЮ ═══════
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 180, 0, 200)
-    frame.Position = UDim2.new(0.5, -90, 0.5, -100)
-    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 30)
-    frame.BackgroundTransparency = 0.1
-    frame.BorderSizePixel = 0
-    frame.ClipsDescendants = true
-    frame.Active = true
-    frame.Draggable = true
-    frame.Visible = true
-    frame.Parent = menuGui
+    -- ═══════ ОСНОВНОЕ МЕНЮ (ЧЁРНОЕ) ═══════
+    menuFrame = Instance.new("Frame")
+    menuFrame.Size = UDim2.new(0, 190, 0, 210)
+    menuFrame.Position = UDim2.new(0.5, -95, 0.5, -105)
+    menuFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- ПОЛНОСТЬЮ ЧЁРНЫЙ
+    menuFrame.BackgroundTransparency = 0 -- НЕПРОЗРАЧНЫЙ
+    menuFrame.BorderSizePixel = 3
+    menuFrame.BorderColor3 = Color3.fromRGB(255, 0, 0) -- Начальный цвет (будет меняться)
+    menuFrame.ClipsDescendants = true
+    menuFrame.Active = true
+    menuFrame.Draggable = true
+    menuFrame.Visible = true
+    menuFrame.Parent = menuGui
     
-    -- ЗАКРУГЛЕНИЕ
+    -- ЗАКРУГЛЕНИЕ УГЛОВ
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 14)
-    corner.Parent = frame
-    
-    -- НЕОНОВАЯ ОБВОДКА
-    local glow = Instance.new("Frame")
-    glow.Size = UDim2.new(1, 4, 1, 4)
-    glow.Position = UDim2.new(0, -2, 0, -2)
-    glow.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
-    glow.BackgroundTransparency = 0.7
-    glow.BorderSizePixel = 0
-    glow.Parent = frame
-    
-    local glowCorner = Instance.new("UICorner")
-    glowCorner.CornerRadius = UDim.new(0, 16)
-    glowCorner.Parent = glow
+    corner.CornerRadius = UDim.new(0, 16)
+    corner.Parent = menuFrame
     
     -- ЗАГОЛОВОК
     local header = Instance.new("Frame")
-    header.Size = UDim2.new(1, 0, 0, 40)
+    header.Size = UDim2.new(1, 0, 0, 42)
     header.Position = UDim2.new(0, 0, 0, 0)
-    header.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
-    header.BackgroundTransparency = 0.8
-    header.BorderSizePixel = 0
-    header.Parent = frame
+    header.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    header.BackgroundTransparency = 0
+    header.BorderSizePixel = 2
+    header.BorderColor3 = Color3.fromRGB(255, 0, 0)
+    header.Parent = menuFrame
     
     local headerCorner = Instance.new("UICorner")
     headerCorner.CornerRadius = UDim.new(0, 14)
@@ -177,7 +197,7 @@ local function CreateMenu()
     
     -- ИКОНКА
     local icon = Instance.new("TextLabel")
-    icon.Size = UDim2.new(0, 25, 1, 0)
+    icon.Size = UDim2.new(0, 28, 1, 0)
     icon.Position = UDim2.new(0, 8, 0, 0)
     icon.BackgroundTransparency = 1
     icon.Text = "✨"
@@ -188,8 +208,8 @@ local function CreateMenu()
     
     -- ТЕКСТ ЗАГОЛОВКА
     local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, -40, 1, 0)
-    title.Position = UDim2.new(0, 38, 0, 0)
+    title.Size = UDim2.new(1, -45, 1, 0)
+    title.Position = UDim2.new(0, 40, 0, 0)
     title.BackgroundTransparency = 1
     title.Text = "ESP ULTRA"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -198,12 +218,14 @@ local function CreateMenu()
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = header
     
-    -- КНОПКА ЗАКРЫТИЯ (крестик) — СКРЫВАЕТ МЕНЮ, ПОКАЗЫВАЕТ КВАДРАТИК
+    -- ═══════ КНОПКА ЗАКРЫТИЯ ═══════
     local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 25, 0, 25)
-    closeBtn.Position = UDim2.new(1, -30, 0, 8)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-    closeBtn.BackgroundTransparency = 0.6
+    closeBtn.Size = UDim2.new(0, 28, 0, 28)
+    closeBtn.Position = UDim2.new(1, -34, 0, 7)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    closeBtn.BackgroundTransparency = 0
+    closeBtn.BorderSizePixel = 2
+    closeBtn.BorderColor3 = Color3.fromRGB(255, 0, 0)
     closeBtn.Text = "✕"
     closeBtn.TextColor3 = Color3.new(1, 1, 1)
     closeBtn.TextScaled = true
@@ -211,103 +233,105 @@ local function CreateMenu()
     closeBtn.Parent = header
     
     local closeCorner = Instance.new("UICorner")
-    closeCorner.CornerRadius = UDim.new(0, 6)
+    closeCorner.CornerRadius = UDim.new(0, 8)
     closeCorner.Parent = closeBtn
     
     closeBtn.MouseButton1Click:Connect(function()
-        -- Скрываем меню
-        frame.Visible = false
-        isMenuVisible = false
-        -- Показываем квадратик
-        squareBtn.Visible = true
-        -- Анимация появления квадратика
-        squareBtn.Size = UDim2.new(0, 0, 0, 0)
-        squareBtn:TweenSize(UDim2.new(0, 50, 0, 50), "Out", "Quad", 0.3, true)
+        menuFrame.Visible = false
+        if squareBtn then
+            squareBtn.Visible = true
+            squareBtn.Size = UDim2.new(0, 0, 0, 0)
+            squareBtn:TweenSize(UDim2.new(0, 50, 0, 50), "Out", "Quad", 0.3, true)
+        end
     end)
     
-    -- ═══════ КНОПКА-КВАДРАТИК (появляется когда меню скрыто) ═══════
-    local squareBtn = Instance.new("TextButton")
+    -- ═══════ КНОПКА-КВАДРАТИК ═══════
+    squareBtn = Instance.new("TextButton")
     squareBtn.Size = UDim2.new(0, 50, 0, 50)
     squareBtn.Position = UDim2.new(0, 15, 0, 15)
-    squareBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
-    squareBtn.BackgroundTransparency = 0.15
+    squareBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    squareBtn.BackgroundTransparency = 0
+    squareBtn.BorderSizePixel = 3
+    squareBtn.BorderColor3 = Color3.fromRGB(255, 0, 0)
     squareBtn.Text = "✨"
     squareBtn.TextColor3 = Color3.new(1, 1, 1)
     squareBtn.TextScaled = true
     squareBtn.Font = Enum.Font.GothamBold
-    squareBtn.Visible = false  -- Изначально скрыта
+    squareBtn.Visible = false
     squareBtn.Parent = menuGui
     
     local squareCorner = Instance.new("UICorner")
-    squareCorner.CornerRadius = UDim.new(0, 12)
+    squareCorner.CornerRadius = UDim.new(0, 14)
     squareCorner.Parent = squareBtn
     
-    -- СГЛАЖЕННАЯ ТЕНЬ (для красоты)
+    -- ТЕНЬ ДЛЯ КВАДРАТИКА
     local shadow = Instance.new("Frame")
     shadow.Size = UDim2.new(1, 6, 1, 6)
     shadow.Position = UDim2.new(0, -3, 0, -3)
-    shadow.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
-    shadow.BackgroundTransparency = 0.8
+    shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.BackgroundTransparency = 0
     shadow.BorderSizePixel = 0
     shadow.ZIndex = 0
     shadow.Parent = squareBtn
     
     local shadowCorner = Instance.new("UICorner")
-    shadowCorner.CornerRadius = UDim.new(0, 14)
+    shadowCorner.CornerRadius = UDim.new(0, 16)
     shadowCorner.Parent = shadow
     
     -- ПУЛЬСАЦИЯ КВАДРАТИКА
     spawn(function()
-        while squareBtn do
+        while squareBtn and squareBtn.Parent do
             if squareBtn.Visible then
-                squareBtn.BackgroundTransparency = 0.15 + 0.15 * math.sin(os.clock() * 2)
-                squareBtn.Size = UDim2.new(0, 50 + 5 * math.sin(os.clock() * 2), 0, 50 + 5 * math.sin(os.clock() * 2))
+                squareBtn.Size = UDim2.new(0, 50 + 4 * math.sin(os.clock() * 2), 0, 50 + 4 * math.sin(os.clock() * 2))
             end
             task.wait(0.05)
         end
     end)
     
-    -- ПРИ НАЖАТИИ НА КВАДРАТИК — ПОКАЗЫВАЕМ МЕНЮ, СКРЫВАЕМ КВАДРАТИК
     squareBtn.MouseButton1Click:Connect(function()
-        -- Скрываем квадратик
         squareBtn.Visible = false
-        -- Показываем меню с анимацией
-        frame.Visible = true
-        isMenuVisible = true
-        -- Анимация появления меню
-        frame.Size = UDim2.new(0, 0, 0, 0)
-        frame:TweenSize(UDim2.new(0, 180, 0, 200), "Out", "Elastic", 0.5, true)
+        menuFrame.Visible = true
+        menuFrame.Size = UDim2.new(0, 0, 0, 0)
+        menuFrame:TweenSize(UDim2.new(0, 190, 0, 210), "Out", "Elastic", 0.5, true)
     end)
     
     -- ═══════ НАСТРОЙКИ ═══════
     local settings = Instance.new("Frame")
-    settings.Size = UDim2.new(1, -16, 1, -55)
-    settings.Position = UDim2.new(0, 8, 0, 48)
+    settings.Size = UDim2.new(1, -16, 1, -58)
+    settings.Position = UDim2.new(0, 8, 0, 50)
     settings.BackgroundTransparency = 1
-    settings.Parent = frame
+    settings.Parent = menuFrame
+    
+    -- ФУНКЦИЯ СОЗДАНИЯ КНОПКИ С РАДУЖНОЙ ОБВОДКОЙ
+    local function CreateStyledButton(parent, yPos, text, icon)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(1, 0, 0, 36)
+        btn.Position = UDim2.new(0, 0, 0, yPos)
+        btn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+        btn.BackgroundTransparency = 0
+        btn.BorderSizePixel = 2
+        btn.BorderColor3 = Color3.fromRGB(255, 0, 0)
+        btn.Text = icon .. " " .. text
+        btn.TextColor3 = Color3.new(1, 1, 1)
+        btn.TextScaled = true
+        btn.Font = Enum.Font.GothamBold
+        btn.Parent = parent
+        
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 8)
+        btnCorner.Parent = btn
+        
+        return btn
+    end
     
     -- КНОПКА ВКЛ/ВЫКЛ
-    local toggleBtn = Instance.new("TextButton")
-    toggleBtn.Size = UDim2.new(1, 0, 0, 35)
-    toggleBtn.Position = UDim2.new(0, 0, 0, 0)
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
-    toggleBtn.BackgroundTransparency = 0.7
-    toggleBtn.Text = "🔘 ВКЛ"
-    toggleBtn.TextColor3 = Color3.new(1, 1, 1)
-    toggleBtn.TextScaled = true
-    toggleBtn.Font = Enum.Font.GothamBold
-    toggleBtn.Parent = settings
-    
-    local toggleCorner = Instance.new("UICorner")
-    toggleCorner.CornerRadius = UDim.new(0, 8)
-    toggleCorner.Parent = toggleBtn
-    
+    local toggleBtn = CreateStyledButton(settings, 0, "ВКЛ", "🔘")
     local isOn = true
     toggleBtn.MouseButton1Click:Connect(function()
         isOn = not isOn
         CONFIG.Enabled = isOn
         toggleBtn.Text = isOn and "🔘 ВКЛ" or "🔘 ВЫКЛ"
-        toggleBtn.BackgroundColor3 = isOn and Color3.fromRGB(0, 200, 100) or Color3.fromRGB(200, 50, 50)
+        toggleBtn.BackgroundColor3 = isOn and Color3.fromRGB(15, 15, 15) or Color3.fromRGB(40, 10, 10)
         for _, data in pairs(espData) do
             if data.Highlight then
                 data.Highlight.Enabled = isOn
@@ -316,21 +340,7 @@ local function CreateMenu()
     end)
     
     -- КНОПКА ДИСТАНЦИИ
-    local distBtn = Instance.new("TextButton")
-    distBtn.Size = UDim2.new(1, 0, 0, 35)
-    distBtn.Position = UDim2.new(0, 0, 0, 42)
-    distBtn.BackgroundColor3 = Color3.fromRGB(200, 150, 0)
-    distBtn.BackgroundTransparency = 0.7
-    distBtn.Text = "📏 500м"
-    distBtn.TextColor3 = Color3.new(1, 1, 1)
-    distBtn.TextScaled = true
-    distBtn.Font = Enum.Font.GothamBold
-    distBtn.Parent = settings
-    
-    local distCorner = Instance.new("UICorner")
-    distCorner.CornerRadius = UDim.new(0, 8)
-    distCorner.Parent = distBtn
-    
+    local distBtn = CreateStyledButton(settings, 42, "500м", "📏")
     local distValues = {100, 300, 500, 1000}
     local distIndex = 3
     distBtn.MouseButton1Click:Connect(function()
@@ -340,21 +350,7 @@ local function CreateMenu()
     end)
     
     -- КНОПКА ЦВЕТА
-    local colorBtn = Instance.new("TextButton")
-    colorBtn.Size = UDim2.new(1, 0, 0, 35)
-    colorBtn.Position = UDim2.new(0, 0, 0, 84)
-    colorBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 200)
-    colorBtn.BackgroundTransparency = 0.7
-    colorBtn.Text = "🎨 ЦВЕТ"
-    colorBtn.TextColor3 = Color3.new(1, 1, 1)
-    colorBtn.TextScaled = true
-    colorBtn.Font = Enum.Font.GothamBold
-    colorBtn.Parent = settings
-    
-    local colorCorner = Instance.new("UICorner")
-    colorCorner.CornerRadius = UDim.new(0, 8)
-    colorCorner.Parent = colorBtn
-    
+    local colorBtn = CreateStyledButton(settings, 84, "БИРЮЗ", "🎨")
     local colors = {
         Color3.fromRGB(0, 255, 200),
         Color3.fromRGB(255, 0, 100),
@@ -362,7 +358,7 @@ local function CreateMenu()
         Color3.fromRGB(255, 200, 0),
         Color3.fromRGB(200, 0, 255)
     }
-    local colorNames = {"🌊 БИРЮЗ", "❤️ КРАСНЫЙ", "💙 СИНИЙ", "💛 ЖЕЛТЫЙ", "💜 ФИОЛЕТ"}
+    local colorNames = {"БИРЮЗ", "КРАСНЫЙ", "СИНИЙ", "ЖЕЛТЫЙ", "ФИОЛЕТ"}
     local colorIndex = 1
     colorBtn.MouseButton1Click:Connect(function()
         colorIndex = colorIndex % #colors + 1
@@ -381,34 +377,46 @@ local function CreateMenu()
     footer.Position = UDim2.new(0, 0, 1, -20)
     footer.BackgroundTransparency = 1
     footer.Text = "✨ F1"
-    footer.TextColor3 = Color3.fromRGB(150, 150, 180)
+    footer.TextColor3 = Color3.fromRGB(100, 100, 100)
     footer.TextScaled = true
     footer.Font = Enum.Font.Gotham
-    footer.Parent = frame
+    footer.Parent = menuFrame
     
-    -- ═══════ F1 — переключение меню ═══════
+    -- ═══════ ЗАПУСК РАДУЖНОЙ АНИМАЦИИ ═══════
+    local rainbowObjects = {
+        menuFrame,
+        header,
+        closeBtn,
+        squareBtn,
+        toggleBtn,
+        distBtn,
+        colorBtn
+    }
+    StartRainbow(rainbowObjects)
+    
+    -- ═══════ F1 — переключение ═══════
     UserInput.InputBegan:Connect(function(input, gp)
         if gp then return end
         if input.KeyCode == Enum.KeyCode.F1 then
-            if frame.Visible then
-                -- Скрываем меню, показываем квадратик
-                frame.Visible = false
-                isMenuVisible = false
-                squareBtn.Visible = true
-                squareBtn.Size = UDim2.new(0, 0, 0, 0)
-                squareBtn:TweenSize(UDim2.new(0, 50, 0, 50), "Out", "Quad", 0.3, true)
+            if menuFrame.Visible then
+                menuFrame.Visible = false
+                if squareBtn then
+                    squareBtn.Visible = true
+                    squareBtn.Size = UDim2.new(0, 0, 0, 0)
+                    squareBtn:TweenSize(UDim2.new(0, 50, 0, 50), "Out", "Quad", 0.3, true)
+                end
             else
-                -- Скрываем квадратик, показываем меню
-                squareBtn.Visible = false
-                frame.Visible = true
-                isMenuVisible = true
-                frame.Size = UDim2.new(0, 0, 0, 0)
-                frame:TweenSize(UDim2.new(0, 180, 0, 200), "Out", "Elastic", 0.5, true)
+                if squareBtn then
+                    squareBtn.Visible = false
+                end
+                menuFrame.Visible = true
+                menuFrame.Size = UDim2.new(0, 0, 0, 0)
+                menuFrame:TweenSize(UDim2.new(0, 190, 0, 210), "Out", "Elastic", 0.5, true)
             end
         end
     end)
     
-    return frame, squareBtn
+    return menuFrame, squareBtn
 end
 
 -- ═══════════════════════════════════════════════════════════════════
@@ -470,9 +478,8 @@ local function Init()
     print("═══════════════════════════════════════════════")
     print("✅ ULTRA ESP УСПЕШНО ЗАПУЩЕН!")
     print("📌 F1 - открыть/закрыть меню")
-    print("📌 Нажми ✕ — меню скроется, появится квадратик")
-    print("📌 Нажми квадратик — меню появится")
-    print("📌 Скрипт НЕ ВЫКЛЮЧАЕТСЯ при закрытии меню!")
+    print("📌 Меню ПОЛНОСТЬЮ ЧЁРНОЕ (непрозрачное)")
+    print("📌 ОБВОДКА переливается РАДУГОЙ! 🌈")
     print("📌 Отключить: _G.STOP_ESP = true")
     print("═══════════════════════════════════════════════")
 end
@@ -490,6 +497,9 @@ RunService.Heartbeat:Connect(function()
             CoreGui:FindFirstChild("UltraMenu"):Destroy()
         end
         espData = {}
+        if rainbowThread then
+            rainbowThread = nil
+        end
         _G.STOP_ESP = nil
         print("✨ ULTRA ESP ОСТАНОВЛЕН")
     end
