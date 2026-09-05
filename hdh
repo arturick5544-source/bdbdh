@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════
--- ULTRA ESP | УНИВЕРСАЛЬНЫЙ | ДЛЯ ВСЕХ ИГР | ЗУМЕР-МЕНЮ
+-- ULTRA ESP | УНИВЕРСАЛЬНЫЙ | МЕНЮ С КНОПКОЙ-КВАДРАТИКОМ
 -- ═══════════════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
@@ -36,6 +36,7 @@ ESPFolder.Parent = CoreGui
 
 local espData = {}
 local MenuOpen = true
+local isMenuVisible = true
 
 -- ═══════════════════════════════════════════════════════════════════
 -- СОЗДАНИЕ ОБВОДКИ (Highlight)
@@ -47,7 +48,6 @@ local function CreateHighlight(player)
     local char = player.Character
     if not char then return end
     
-    -- Highlight — это встроенная функция Roblox для обводки
     local highlight = Instance.new("Highlight")
     highlight.Name = "PlayerHighlight"
     highlight.Adornee = char
@@ -55,7 +55,7 @@ local function CreateHighlight(player)
     highlight.Enabled = true
     highlight.FillColor = CONFIG.FillColor
     highlight.FillTransparency = CONFIG.FillTransparency
-    highlight.OutlineColor = CONFIG.OutlineColor  -- БЕЛАЯ ОБВОДКА
+    highlight.OutlineColor = CONFIG.OutlineColor
     highlight.OutlineTransparency = CONFIG.OutlineTransparency
     highlight.Parent = ESPFolder
     
@@ -91,22 +91,18 @@ local function UpdateESP()
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
         local humanoid = char and char:FindFirstChild("Humanoid")
         
-        -- ===== СМЕРТЬ =====
         if not char or not hrp or not humanoid or humanoid.Health <= 0 then
             data.IsDead = true
             data.Highlight.Enabled = false
             continue
         end
         
-        -- ===== ЖИВ =====
         data.IsDead = false
         
-        -- Привязываем к персонажу
         if data.Highlight.Adornee ~= char then
             data.Highlight.Adornee = char
         end
         
-        -- ===== ДИСТАНЦИЯ =====
         local dist = (hrp.Position - camPos).Magnitude
         
         if dist <= CONFIG.MaxDist then
@@ -115,7 +111,6 @@ local function UpdateESP()
             data.Highlight.Enabled = false
         end
         
-        -- ===== НИЗКОЕ ЗДОРОВЬЕ (мигание) =====
         if humanoid and humanoid.Health < 30 then
             data.Highlight.FillColor = Color3.fromRGB(255, 0, 0)
             data.Highlight.OutlineColor = Color3.fromRGB(255, 200, 0)
@@ -129,14 +124,14 @@ local function UpdateESP()
 end
 
 -- ═══════════════════════════════════════════════════════════════════
--- ЗУМЕРСКОЕ МЕНЮ (ДЛЯ ТЕЛЕФОНА)
+-- МЕНЮ С КНОПКОЙ-КВАДРАТИКОМ
 -- ═══════════════════════════════════════════════════════════════════
 local function CreateMenu()
     local menuGui = Instance.new("ScreenGui")
     menuGui.Name = "UltraMenu"
     menuGui.Parent = CoreGui
     
-    -- ОСНОВНАЯ РАМКА (маленькая, для телефона)
+    -- ═══════ ОСНОВНОЕ МЕНЮ ═══════
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0, 180, 0, 200)
     frame.Position = UDim2.new(0.5, -90, 0.5, -100)
@@ -146,6 +141,7 @@ local function CreateMenu()
     frame.ClipsDescendants = true
     frame.Active = true
     frame.Draggable = true
+    frame.Visible = true
     frame.Parent = menuGui
     
     -- ЗАКРУГЛЕНИЕ
@@ -166,7 +162,7 @@ local function CreateMenu()
     glowCorner.CornerRadius = UDim.new(0, 16)
     glowCorner.Parent = glow
     
-    -- ЗАГОЛОВОК (уменьшенный)
+    -- ЗАГОЛОВОК
     local header = Instance.new("Frame")
     header.Size = UDim2.new(1, 0, 0, 40)
     header.Position = UDim2.new(0, 0, 0, 0)
@@ -202,7 +198,7 @@ local function CreateMenu()
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Parent = header
     
-    -- КНОПКА ЗАКРЫТИЯ (маленькая)
+    -- КНОПКА ЗАКРЫТИЯ (крестик) — СКРЫВАЕТ МЕНЮ, ПОКАЗЫВАЕТ КВАДРАТИК
     local closeBtn = Instance.new("TextButton")
     closeBtn.Size = UDim2.new(0, 25, 0, 25)
     closeBtn.Position = UDim2.new(1, -30, 0, 8)
@@ -219,44 +215,71 @@ local function CreateMenu()
     closeCorner.Parent = closeBtn
     
     closeBtn.MouseButton1Click:Connect(function()
+        -- Скрываем меню
         frame.Visible = false
-        openBtn.Visible = true
-        MenuOpen = false
+        isMenuVisible = false
+        -- Показываем квадратик
+        squareBtn.Visible = true
+        -- Анимация появления квадратика
+        squareBtn.Size = UDim2.new(0, 0, 0, 0)
+        squareBtn:TweenSize(UDim2.new(0, 50, 0, 50), "Out", "Quad", 0.3, true)
     end)
     
-    -- КНОПКА ОТКРЫТИЯ (маленькая, плавающая)
-    local openBtn = Instance.new("TextButton")
-    openBtn.Size = UDim2.new(0, 45, 0, 45)
-    openBtn.Position = UDim2.new(0, 10, 0, 10)
-    openBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
-    openBtn.BackgroundTransparency = 0.15
-    openBtn.Text = "✨"
-    openBtn.TextColor3 = Color3.new(1, 1, 1)
-    openBtn.TextScaled = true
-    openBtn.Font = Enum.Font.GothamBold
-    openBtn.Visible = false
-    openBtn.Parent = menuGui
+    -- ═══════ КНОПКА-КВАДРАТИК (появляется когда меню скрыто) ═══════
+    local squareBtn = Instance.new("TextButton")
+    squareBtn.Size = UDim2.new(0, 50, 0, 50)
+    squareBtn.Position = UDim2.new(0, 15, 0, 15)
+    squareBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
+    squareBtn.BackgroundTransparency = 0.15
+    squareBtn.Text = "✨"
+    squareBtn.TextColor3 = Color3.new(1, 1, 1)
+    squareBtn.TextScaled = true
+    squareBtn.Font = Enum.Font.GothamBold
+    squareBtn.Visible = false  -- Изначально скрыта
+    squareBtn.Parent = menuGui
     
-    local openCorner = Instance.new("UICorner")
-    openCorner.CornerRadius = UDim.new(0, 10)
-    openCorner.Parent = openBtn
+    local squareCorner = Instance.new("UICorner")
+    squareCorner.CornerRadius = UDim.new(0, 12)
+    squareCorner.Parent = squareBtn
     
-    -- ПУЛЬСАЦИЯ КНОПКИ
+    -- СГЛАЖЕННАЯ ТЕНЬ (для красоты)
+    local shadow = Instance.new("Frame")
+    shadow.Size = UDim2.new(1, 6, 1, 6)
+    shadow.Position = UDim2.new(0, -3, 0, -3)
+    shadow.BackgroundColor3 = Color3.fromRGB(0, 255, 200)
+    shadow.BackgroundTransparency = 0.8
+    shadow.BorderSizePixel = 0
+    shadow.ZIndex = 0
+    shadow.Parent = squareBtn
+    
+    local shadowCorner = Instance.new("UICorner")
+    shadowCorner.CornerRadius = UDim.new(0, 14)
+    shadowCorner.Parent = shadow
+    
+    -- ПУЛЬСАЦИЯ КВАДРАТИКА
     spawn(function()
-        while openBtn do
-            openBtn.BackgroundTransparency = 0.15 + 0.15 * math.sin(os.clock() * 2)
-            openBtn.Size = UDim2.new(0, 45 + 5 * math.sin(os.clock() * 2), 0, 45 + 5 * math.sin(os.clock() * 2))
+        while squareBtn do
+            if squareBtn.Visible then
+                squareBtn.BackgroundTransparency = 0.15 + 0.15 * math.sin(os.clock() * 2)
+                squareBtn.Size = UDim2.new(0, 50 + 5 * math.sin(os.clock() * 2), 0, 50 + 5 * math.sin(os.clock() * 2))
+            end
             task.wait(0.05)
         end
     end)
     
-    openBtn.MouseButton1Click:Connect(function()
-        openBtn.Visible = false
+    -- ПРИ НАЖАТИИ НА КВАДРАТИК — ПОКАЗЫВАЕМ МЕНЮ, СКРЫВАЕМ КВАДРАТИК
+    squareBtn.MouseButton1Click:Connect(function()
+        -- Скрываем квадратик
+        squareBtn.Visible = false
+        -- Показываем меню с анимацией
         frame.Visible = true
-        MenuOpen = true
+        isMenuVisible = true
+        -- Анимация появления меню
+        frame.Size = UDim2.new(0, 0, 0, 0)
+        frame:TweenSize(UDim2.new(0, 180, 0, 200), "Out", "Elastic", 0.5, true)
     end)
     
-    -- ═══════ НАСТРОЙКИ (уменьшенные) ═══════
+    -- ═══════ НАСТРОЙКИ ═══════
     local settings = Instance.new("Frame")
     settings.Size = UDim2.new(1, -16, 1, -55)
     settings.Position = UDim2.new(0, 8, 0, 48)
@@ -363,21 +386,29 @@ local function CreateMenu()
     footer.Font = Enum.Font.Gotham
     footer.Parent = frame
     
-    -- F1
+    -- ═══════ F1 — переключение меню ═══════
     UserInput.InputBegan:Connect(function(input, gp)
         if gp then return end
         if input.KeyCode == Enum.KeyCode.F1 then
             if frame.Visible then
+                -- Скрываем меню, показываем квадратик
                 frame.Visible = false
-                openBtn.Visible = true
+                isMenuVisible = false
+                squareBtn.Visible = true
+                squareBtn.Size = UDim2.new(0, 0, 0, 0)
+                squareBtn:TweenSize(UDim2.new(0, 50, 0, 50), "Out", "Quad", 0.3, true)
             else
-                openBtn.Visible = false
+                -- Скрываем квадратик, показываем меню
+                squareBtn.Visible = false
                 frame.Visible = true
+                isMenuVisible = true
+                frame.Size = UDim2.new(0, 0, 0, 0)
+                frame:TweenSize(UDim2.new(0, 180, 0, 200), "Out", "Elastic", 0.5, true)
             end
         end
     end)
     
-    return frame, openBtn
+    return frame, squareBtn
 end
 
 -- ═══════════════════════════════════════════════════════════════════
@@ -438,9 +469,10 @@ local function Init()
     
     print("═══════════════════════════════════════════════")
     print("✅ ULTRA ESP УСПЕШНО ЗАПУЩЕН!")
-    print("📌 F1 - Меню")
-    print("📌 ТОЛЬКО ОБВОДКА (без ников)")
-    print("📌 Работает в ЛЮБОЙ игре!")
+    print("📌 F1 - открыть/закрыть меню")
+    print("📌 Нажми ✕ — меню скроется, появится квадратик")
+    print("📌 Нажми квадратик — меню появится")
+    print("📌 Скрипт НЕ ВЫКЛЮЧАЕТСЯ при закрытии меню!")
     print("📌 Отключить: _G.STOP_ESP = true")
     print("═══════════════════════════════════════════════")
 end
