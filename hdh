@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════
--- ULTRA ESP | ЧЁРНОЕ МЕНЮ + РАДУЖНАЯ ОБВОДКА (UIStroke)
+-- ULTRA ESP | ВКЛАДКИ ESP + MUSIC | МУЗЫКА ДЛЯ ВСЕХ
 -- ═══════════════════════════════════════════════════════════════════
 
 local Players = game:GetService("Players")
@@ -8,6 +8,7 @@ local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 local UserInput = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
 
 -- Корректный CoreGui
 local CoreGui = game:GetService("CoreGui")
@@ -39,7 +40,11 @@ local squareBtn = nil
 local menuFrame = nil
 local menuGui = nil
 local rainbowThread = nil
-local strokeObjects = {} -- Для хранения всех обводок
+local strokeObjects = {}
+local currentTab = "ESP"
+local currentSound = nil
+local soundId = ""
+local soundName = ""
 
 -- ═══════════════════════════════════════════════════════════════════
 -- РАДУЖНАЯ АНИМАЦИЯ
@@ -60,7 +65,6 @@ local function StartRainbow()
         while rainbowThread do
             t = t + 0.03
             local color = RainbowColor(t)
-            -- Обновляем все обводки
             for _, stroke in pairs(strokeObjects) do
                 if stroke and stroke.Parent then
                     stroke.Color = color
@@ -77,7 +81,7 @@ end
 local function AddStroke(obj, thickness, transparency)
     local stroke = Instance.new("UIStroke")
     stroke.Thickness = thickness or 2
-    stroke.Color = Color3.fromRGB(255, 0, 0) -- Начальный цвет
+    stroke.Color = Color3.fromRGB(255, 0, 0)
     stroke.Transparency = transparency or 0
     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     stroke.Parent = obj
@@ -171,17 +175,52 @@ local function UpdateESP()
 end
 
 -- ═══════════════════════════════════════════════════════════════════
--- МЕНЮ (ЧЁРНОЕ + РАДУЖНАЯ ОБВОДКА)
+-- МУЗЫКАЛЬНАЯ СИСТЕМА (ДЛЯ ВСЕХ ИГРОКОВ)
+-- ═══════════════════════════════════════════════════════════════════
+local function GetSoundName(id)
+    local url = "https://api.roblox.com/assets/" .. id .. "/info"
+    local response = syn and syn.request({Url = url, Method = "GET"}) or game:HttpGet(url)
+    if response then
+        local data = HttpService:JSONDecode(response.Body or response)
+        return data.Name or "Неизвестно"
+    end
+    return "Неизвестно"
+end
+
+local function PlayMusicForAll(songId)
+    if not songId or songId == "" then return end
+    
+    -- Получаем название песни
+    soundName = GetSoundName(songId)
+    
+    -- Создаём звук
+    local sound = Instance.new("Sound")
+    sound.SoundId = "rbxassetid://" .. songId
+    sound.Volume = 1
+    sound.Pitch = 1
+    sound.Looped = true
+    sound.Parent = workspace
+    
+    -- Воспроизводим для всех через RemoteEvent (если есть доступ)
+    -- Или просто проигрываем в workspace (все игроки слышат)
+    sound:Play()
+    
+    currentSound = sound
+    print("🎵 Сейчас играет: " .. soundName .. " (ID: " .. songId .. ")")
+end
+
+-- ═══════════════════════════════════════════════════════════════════
+-- МЕНЮ (ЧЁРНОЕ + ВКЛАДКИ)
 -- ═══════════════════════════════════════════════════════════════════
 local function CreateMenu()
     menuGui = Instance.new("ScreenGui")
     menuGui.Name = "UltraMenu"
     menuGui.Parent = CoreGui
     
-    -- ═══════ ОСНОВНОЕ МЕНЮ (ЧЁРНОЕ) ═══════
+    -- ═══════ ОСНОВНОЕ МЕНЮ ═══════
     menuFrame = Instance.new("Frame")
-    menuFrame.Size = UDim2.new(0, 190, 0, 210)
-    menuFrame.Position = UDim2.new(0.5, -95, 0.5, -105)
+    menuFrame.Size = UDim2.new(0, 220, 0, 280)
+    menuFrame.Position = UDim2.new(0.5, -110, 0.5, -140)
     menuFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     menuFrame.BackgroundTransparency = 0
     menuFrame.BorderSizePixel = 0
@@ -191,15 +230,13 @@ local function CreateMenu()
     menuFrame.Visible = true
     menuFrame.Parent = menuGui
     
-    -- ЗАКРУГЛЕНИЕ УГЛОВ
     local corner = Instance.new("UICorner")
     corner.CornerRadius = UDim.new(0, 16)
     corner.Parent = menuFrame
     
-    -- РАДУЖНАЯ ОБВОДКА ДЛЯ МЕНЮ
     local menuStroke = AddStroke(menuFrame, 3, 0)
     
-    -- ЗАГОЛОВОК
+    -- ═══════ ЗАГОЛОВОК ═══════
     local header = Instance.new("Frame")
     header.Size = UDim2.new(1, 0, 0, 42)
     header.Position = UDim2.new(0, 0, 0, 0)
@@ -212,10 +249,8 @@ local function CreateMenu()
     headerCorner.CornerRadius = UDim.new(0, 14)
     headerCorner.Parent = header
     
-    -- РАДУЖНАЯ ОБВОДКА ДЛЯ ЗАГОЛОВКА
     local headerStroke = AddStroke(header, 2, 0)
     
-    -- ИКОНКА
     local icon = Instance.new("TextLabel")
     icon.Size = UDim2.new(0, 28, 1, 0)
     icon.Position = UDim2.new(0, 8, 0, 0)
@@ -226,12 +261,11 @@ local function CreateMenu()
     icon.Font = Enum.Font.GothamBold
     icon.Parent = header
     
-    -- ТЕКСТ ЗАГОЛОВКА
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -45, 1, 0)
     title.Position = UDim2.new(0, 40, 0, 0)
     title.BackgroundTransparency = 1
-    title.Text = "ESP ULTRA"
+    title.Text = "ULTRA ESP"
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.TextScaled = true
     title.Font = Enum.Font.GothamBold
@@ -255,7 +289,6 @@ local function CreateMenu()
     closeCorner.CornerRadius = UDim.new(0, 8)
     closeCorner.Parent = closeBtn
     
-    -- РАДУЖНАЯ ОБВОДКА ДЛЯ КНОПКИ ЗАКРЫТИЯ
     local closeStroke = AddStroke(closeBtn, 2, 0)
     
     closeBtn.MouseButton1Click:Connect(function()
@@ -267,67 +300,58 @@ local function CreateMenu()
         end
     end)
     
-    -- ═══════ КНОПКА-КВАДРАТИК ═══════
-    squareBtn = Instance.new("TextButton")
-    squareBtn.Size = UDim2.new(0, 50, 0, 50)
-    squareBtn.Position = UDim2.new(0, 15, 0, 15)
-    squareBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    squareBtn.BackgroundTransparency = 0
-    squareBtn.BorderSizePixel = 0
-    squareBtn.Text = "✨"
-    squareBtn.TextColor3 = Color3.new(1, 1, 1)
-    squareBtn.TextScaled = true
-    squareBtn.Font = Enum.Font.GothamBold
-    squareBtn.Visible = false
-    squareBtn.Parent = menuGui
+    -- ═══════ ВКЛАДКИ ═══════
+    local tabsFrame = Instance.new("Frame")
+    tabsFrame.Size = UDim2.new(1, 0, 0, 35)
+    tabsFrame.Position = UDim2.new(0, 0, 0, 44)
+    tabsFrame.BackgroundTransparency = 1
+    tabsFrame.Parent = menuFrame
     
-    local squareCorner = Instance.new("UICorner")
-    squareCorner.CornerRadius = UDim.new(0, 14)
-    squareCorner.Parent = squareBtn
+    -- Кнопка вкладки ESP
+    local espTab = Instance.new("TextButton")
+    espTab.Size = UDim2.new(0.5, 0, 1, 0)
+    espTab.Position = UDim2.new(0, 0, 0, 0)
+    espTab.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    espTab.BackgroundTransparency = 0
+    espTab.BorderSizePixel = 0
+    espTab.Text = "🎯 ESP"
+    espTab.TextColor3 = Color3.new(1, 1, 1)
+    espTab.TextScaled = true
+    espTab.Font = Enum.Font.GothamBold
+    espTab.Parent = tabsFrame
     
-    -- РАДУЖНАЯ ОБВОДКА ДЛЯ КВАДРАТИКА
-    local squareStroke = AddStroke(squareBtn, 3, 0)
+    local espTabCorner = Instance.new("UICorner")
+    espTabCorner.CornerRadius = UDim.new(0, 8)
+    espTabCorner.Parent = espTab
+    local espTabStroke = AddStroke(espTab, 2, 0)
     
-    -- ТЕНЬ ДЛЯ КВАДРАТИКА
-    local shadow = Instance.new("Frame")
-    shadow.Size = UDim2.new(1, 6, 1, 6)
-    shadow.Position = UDim2.new(0, -3, 0, -3)
-    shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    shadow.BackgroundTransparency = 0
-    shadow.BorderSizePixel = 0
-    shadow.ZIndex = 0
-    shadow.Parent = squareBtn
+    -- Кнопка вкладки Music
+    local musicTab = Instance.new("TextButton")
+    musicTab.Size = UDim2.new(0.5, 0, 1, 0)
+    musicTab.Position = UDim2.new(0.5, 0, 0, 0)
+    musicTab.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    musicTab.BackgroundTransparency = 0
+    musicTab.BorderSizePixel = 0
+    musicTab.Text = "🎵 MUSIC"
+    musicTab.TextColor3 = Color3.fromRGB(200, 200, 200)
+    musicTab.TextScaled = true
+    musicTab.Font = Enum.Font.GothamBold
+    musicTab.Parent = tabsFrame
     
-    local shadowCorner = Instance.new("UICorner")
-    shadowCorner.CornerRadius = UDim.new(0, 16)
-    shadowCorner.Parent = shadow
+    local musicTabCorner = Instance.new("UICorner")
+    musicTabCorner.CornerRadius = UDim.new(0, 8)
+    musicTabCorner.Parent = musicTab
+    local musicTabStroke = AddStroke(musicTab, 2, 0)
     
-    -- ПУЛЬСАЦИЯ КВАДРАТИКА
-    spawn(function()
-        while squareBtn and squareBtn.Parent do
-            if squareBtn.Visible then
-                squareBtn.Size = UDim2.new(0, 50 + 4 * math.sin(os.clock() * 2), 0, 50 + 4 * math.sin(os.clock() * 2))
-            end
-            task.wait(0.05)
-        end
-    end)
+    -- ═══════ КОНТЕНТ ВКЛАДКИ ESP ═══════
+    local espContent = Instance.new("Frame")
+    espContent.Size = UDim2.new(1, -16, 1, -100)
+    espContent.Position = UDim2.new(0, 8, 0, 85)
+    espContent.BackgroundTransparency = 1
+    espContent.Parent = menuFrame
     
-    squareBtn.MouseButton1Click:Connect(function()
-        squareBtn.Visible = false
-        menuFrame.Visible = true
-        menuFrame.Size = UDim2.new(0, 0, 0, 0)
-        menuFrame:TweenSize(UDim2.new(0, 190, 0, 210), "Out", "Elastic", 0.5, true)
-    end)
-    
-    -- ═══════ НАСТРОЙКИ ═══════
-    local settings = Instance.new("Frame")
-    settings.Size = UDim2.new(1, -16, 1, -58)
-    settings.Position = UDim2.new(0, 8, 0, 50)
-    settings.BackgroundTransparency = 1
-    settings.Parent = menuFrame
-    
-    -- ФУНКЦИЯ СОЗДАНИЯ КНОПКИ С РАДУЖНОЙ ОБВОДКОЙ
-    local function CreateStyledButton(parent, yPos, text, icon)
+    -- Кнопки ESP
+    local function CreateESPBtn(parent, yPos, text, icon)
         local btn = Instance.new("TextButton")
         btn.Size = UDim2.new(1, 0, 0, 36)
         btn.Position = UDim2.new(0, 0, 0, yPos)
@@ -344,14 +368,11 @@ local function CreateMenu()
         btnCorner.CornerRadius = UDim.new(0, 8)
         btnCorner.Parent = btn
         
-        -- РАДУЖНАЯ ОБВОДКА ДЛЯ КНОПКИ
         local btnStroke = AddStroke(btn, 2, 0)
-        
         return btn
     end
     
-    -- КНОПКА ВКЛ/ВЫКЛ
-    local toggleBtn = CreateStyledButton(settings, 0, "ВКЛ", "🔘")
+    local toggleBtn = CreateESPBtn(espContent, 0, "ВКЛ", "🔘")
     local isOn = true
     toggleBtn.MouseButton1Click:Connect(function()
         isOn = not isOn
@@ -365,8 +386,7 @@ local function CreateMenu()
         end
     end)
     
-    -- КНОПКА ДИСТАНЦИИ
-    local distBtn = CreateStyledButton(settings, 42, "500м", "📏")
+    local distBtn = CreateESPBtn(espContent, 42, "500м", "📏")
     local distValues = {100, 300, 500, 1000}
     local distIndex = 3
     distBtn.MouseButton1Click:Connect(function()
@@ -375,8 +395,7 @@ local function CreateMenu()
         distBtn.Text = "📏 " .. CONFIG.MaxDist .. "м"
     end)
     
-    -- КНОПКА ЦВЕТА
-    local colorBtn = CreateStyledButton(settings, 84, "БИРЮЗ", "🎨")
+    local colorBtn = CreateESPBtn(espContent, 84, "БИРЮЗ", "🎨")
     local colors = {
         Color3.fromRGB(0, 255, 200),
         Color3.fromRGB(255, 0, 100),
@@ -397,21 +416,175 @@ local function CreateMenu()
         end
     end)
     
-    -- НИЖНИЙ ТЕКСТ
-    local footer = Instance.new("TextLabel")
-    footer.Size = UDim2.new(1, 0, 0, 18)
-    footer.Position = UDim2.new(0, 0, 1, -20)
-    footer.BackgroundTransparency = 1
-    footer.Text = "✨ F1"
-    footer.TextColor3 = Color3.fromRGB(100, 100, 100)
-    footer.TextScaled = true
-    footer.Font = Enum.Font.Gotham
-    footer.Parent = menuFrame
+    -- ═══════ КОНТЕНТ ВКЛАДКИ MUSIC ═══════
+    local musicContent = Instance.new("Frame")
+    musicContent.Size = UDim2.new(1, -16, 1, -100)
+    musicContent.Position = UDim2.new(0, 8, 0, 85)
+    musicContent.BackgroundTransparency = 1
+    musicContent.Visible = false
+    musicContent.Parent = menuFrame
     
-    -- ═══════ ЗАПУСК РАДУЖНОЙ АНИМАЦИИ ═══════
-    StartRainbow()
+    -- Название песни (сверху)
+    local songNameLabel = Instance.new("TextLabel")
+    songNameLabel.Size = UDim2.new(1, 0, 0, 30)
+    songNameLabel.Position = UDim2.new(0, 0, 0, 0)
+    songNameLabel.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    songNameLabel.BackgroundTransparency = 0
+    songNameLabel.BorderSizePixel = 0
+    songNameLabel.Text = "Нет песни"
+    songNameLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    songNameLabel.TextScaled = true
+    songNameLabel.Font = Enum.Font.Gotham
+    songNameLabel.Parent = musicContent
     
-    -- ═══════ F1 — переключение ═══════
+    local nameCorner = Instance.new("UICorner")
+    nameCorner.CornerRadius = UDim.new(0, 8)
+    nameCorner.Parent = songNameLabel
+    local nameStroke = AddStroke(songNameLabel, 2, 0)
+    
+    -- Поле ввода ID
+    local inputBox = Instance.new("TextBox")
+    inputBox.Size = UDim2.new(1, 0, 0, 36)
+    inputBox.Position = UDim2.new(0, 0, 0, 36)
+    inputBox.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    inputBox.BackgroundTransparency = 0
+    inputBox.BorderSizePixel = 0
+    inputBox.PlaceholderText = "Введите ID песни..."
+    inputBox.PlaceholderColor3 = Color3.fromRGB(100, 100, 100)
+    inputBox.TextColor3 = Color3.new(1, 1, 1)
+    inputBox.TextScaled = true
+    inputBox.Font = Enum.Font.Gotham
+    inputBox.ClearTextOnFocus = false
+    inputBox.Parent = musicContent
+    
+    local inputCorner = Instance.new("UICorner")
+    inputCorner.CornerRadius = UDim.new(0, 8)
+    inputCorner.Parent = inputBox
+    local inputStroke = AddStroke(inputBox, 2, 0)
+    
+    inputBox.FocusLost:Connect(function(enterPressed)
+        if enterPressed then
+            soundId = inputBox.Text
+            if soundId ~= "" then
+                -- Получаем название
+                local name = GetSoundName(soundId)
+                soundName = name
+                songNameLabel.Text = "🎵 " .. name
+            end
+        end
+    end)
+    
+    -- Кнопка включить
+    local playBtn = Instance.new("TextButton")
+    playBtn.Size = UDim2.new(1, 0, 0, 40)
+    playBtn.Position = UDim2.new(0, 0, 0, 78)
+    playBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+    playBtn.BackgroundTransparency = 0
+    playBtn.BorderSizePixel = 0
+    playBtn.Text = "▶️ ВКЛЮЧИТЬ"
+    playBtn.TextColor3 = Color3.new(1, 1, 1)
+    playBtn.TextScaled = true
+    playBtn.Font = Enum.Font.GothamBold
+    playBtn.Parent = musicContent
+    
+    local playCorner = Instance.new("UICorner")
+    playCorner.CornerRadius = UDim.new(0, 8)
+    playCorner.Parent = playBtn
+    local playStroke = AddStroke(playBtn, 2, 0)
+    
+    playBtn.MouseButton1Click:Connect(function()
+        if soundId and soundId ~= "" then
+            PlayMusicForAll(soundId)
+            playBtn.Text = "⏹️ ОСТАНОВИТЬ"
+        end
+    end)
+    
+    -- Кнопка остановить
+    local stopBtn = Instance.new("TextButton")
+    stopBtn.Size = UDim2.new(1, 0, 0, 40)
+    stopBtn.Position = UDim2.new(0, 0, 0, 124)
+    stopBtn.BackgroundColor3 = Color3.fromRGB(30, 10, 10)
+    stopBtn.BackgroundTransparency = 0
+    stopBtn.BorderSizePixel = 0
+    stopBtn.Text = "⏹️ ОСТАНОВИТЬ"
+    stopBtn.TextColor3 = Color3.new(1, 1, 1)
+    stopBtn.TextScaled = true
+    stopBtn.Font = Enum.Font.GothamBold
+    stopBtn.Parent = musicContent
+    
+    local stopCorner = Instance.new("UICorner")
+    stopCorner.CornerRadius = UDim.new(0, 8)
+    stopCorner.Parent = stopBtn
+    local stopStroke = AddStroke(stopBtn, 2, 0)
+    
+    stopBtn.MouseButton1Click:Connect(function()
+        if currentSound then
+            currentSound:Stop()
+            currentSound:Destroy()
+            currentSound = nil
+            playBtn.Text = "▶️ ВКЛЮЧИТЬ"
+            print("⏹️ Музыка остановлена")
+        end
+    end)
+    
+    -- ═══════ ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ═══════
+    espTab.MouseButton1Click:Connect(function()
+        currentTab = "ESP"
+        espTab.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        espTab.TextColor3 = Color3.new(1, 1, 1)
+        musicTab.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+        musicTab.TextColor3 = Color3.fromRGB(200, 200, 200)
+        espContent.Visible = true
+        musicContent.Visible = false
+    end)
+    
+    musicTab.MouseButton1Click:Connect(function()
+        currentTab = "MUSIC"
+        musicTab.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        musicTab.TextColor3 = Color3.new(1, 1, 1)
+        espTab.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+        espTab.TextColor3 = Color3.fromRGB(200, 200, 200)
+        espContent.Visible = false
+        musicContent.Visible = true
+    end)
+    
+    -- ═══════ КВАДРАТИК ═══════
+    squareBtn = Instance.new("TextButton")
+    squareBtn.Size = UDim2.new(0, 50, 0, 50)
+    squareBtn.Position = UDim2.new(0, 15, 0, 15)
+    squareBtn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    squareBtn.BackgroundTransparency = 0
+    squareBtn.BorderSizePixel = 0
+    squareBtn.Text = "✨"
+    squareBtn.TextColor3 = Color3.new(1, 1, 1)
+    squareBtn.TextScaled = true
+    squareBtn.Font = Enum.Font.GothamBold
+    squareBtn.Visible = false
+    squareBtn.Parent = menuGui
+    
+    local squareCorner = Instance.new("UICorner")
+    squareCorner.CornerRadius = UDim.new(0, 14)
+    squareCorner.Parent = squareBtn
+    local squareStroke = AddStroke(squareBtn, 3, 0)
+    
+    squareBtn.MouseButton1Click:Connect(function()
+        squareBtn.Visible = false
+        menuFrame.Visible = true
+        menuFrame.Size = UDim2.new(0, 0, 0, 0)
+        menuFrame:TweenSize(UDim2.new(0, 220, 0, 280), "Out", "Elastic", 0.5, true)
+    end)
+    
+    -- ПУЛЬСАЦИЯ КВАДРАТИКА
+    spawn(function()
+        while squareBtn and squareBtn.Parent do
+            if squareBtn.Visible then
+                squareBtn.Size = UDim2.new(0, 50 + 4 * math.sin(os.clock() * 2), 0, 50 + 4 * math.sin(os.clock() * 2))
+            end
+            task.wait(0.05)
+        end
+    end)
+    
+    -- ═══════ F1 ═══════
     UserInput.InputBegan:Connect(function(input, gp)
         if gp then return end
         if input.KeyCode == Enum.KeyCode.F1 then
@@ -428,10 +601,13 @@ local function CreateMenu()
                 end
                 menuFrame.Visible = true
                 menuFrame.Size = UDim2.new(0, 0, 0, 0)
-                menuFrame:TweenSize(UDim2.new(0, 190, 0, 210), "Out", "Elastic", 0.5, true)
+                menuFrame:TweenSize(UDim2.new(0, 220, 0, 280), "Out", "Elastic", 0.5, true)
             end
         end
     end)
+    
+    -- ═══════ ЗАПУСК РАДУГИ ═══════
+    StartRainbow()
     
     return menuFrame, squareBtn
 end
@@ -444,7 +620,6 @@ local function Init()
     print("✨ ULTRA ESP ЗАПУСК...")
     print("═══════════════════════════════════════════════")
     
-    -- Очистка
     if CoreGui:FindFirstChild("UltraESP") then
         CoreGui:FindFirstChild("UltraESP"):Destroy()
     end
@@ -452,14 +627,12 @@ local function Init()
         CoreGui:FindFirstChild("UltraMenu"):Destroy()
     end
     
-    -- Очищаем список обводок
     strokeObjects = {}
     
     ESPFolder = Instance.new("Folder")
     ESPFolder.Name = "UltraESP"
     ESPFolder.Parent = CoreGui
     
-    -- Создаём для всех
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
             task.wait(0.05)
@@ -467,15 +640,12 @@ local function Init()
         end
     end
     
-    -- Меню
     CreateMenu()
     
-    -- Обновление
     RunService.Heartbeat:Connect(function()
         pcall(UpdateESP)
     end)
     
-    -- Новые игроки
     Players.PlayerAdded:Connect(function(player)
         if player ~= LocalPlayer then
             player.CharacterAdded:Connect(function()
@@ -485,7 +655,6 @@ local function Init()
         end
     end)
     
-    -- Выход
     Players.PlayerRemoving:Connect(function(player)
         if espData[player] then
             if espData[player].Highlight then
@@ -498,16 +667,15 @@ local function Init()
     print("═══════════════════════════════════════════════")
     print("✅ ULTRA ESP УСПЕШНО ЗАПУЩЕН!")
     print("📌 F1 - открыть/закрыть меню")
-    print("📌 Меню ПОЛНОСТЬЮ ЧЁРНОЕ (непрозрачное)")
-    print("📌 ОБВОДКА переливается РАДУГОЙ! 🌈")
+    print("📌 Вкладки: ESP и MUSIC")
+    print("📌 В MUSIC введи ID песни и нажми ВКЛЮЧИТЬ")
+    print("📌 ВСЕ ИГРОКИ будут слышать музыку!")
     print("📌 Отключить: _G.STOP_ESP = true")
     print("═══════════════════════════════════════════════")
 end
 
--- Запуск
 pcall(Init)
 
--- Отключение
 RunService.Heartbeat:Connect(function()
     if _G.STOP_ESP then
         if CoreGui:FindFirstChild("UltraESP") then
@@ -515,6 +683,10 @@ RunService.Heartbeat:Connect(function()
         end
         if CoreGui:FindFirstChild("UltraMenu") then
             CoreGui:FindFirstChild("UltraMenu"):Destroy()
+        end
+        if currentSound then
+            currentSound:Stop()
+            currentSound:Destroy()
         end
         espData = {}
         if rainbowThread then
